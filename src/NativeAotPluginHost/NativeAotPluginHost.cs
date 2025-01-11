@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 
 namespace DemoApp;
 
@@ -12,6 +13,13 @@ public partial class NativeAotPluginHost : IDisposable
     private const string LibraryName = "NativeAotPluginHost";
     private bool _isInitialized;
     private bool _isDisposed;
+    
+    private readonly ILogger _logger;
+
+    public NativeAotPluginHost(ILogger<NativeAotPluginHost> logger)
+    {
+        _logger = logger;
+    }
 
     [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "initialize_runtime")]
     [return: MarshalAs(UnmanagedType.I1)]

@@ -7,16 +7,14 @@ if (Test-Path build) {
 }
 
 # Detect OS and set runtime identifier
-$OS = switch ($PSVersionTable.Platform) {
-    "Unix" {
-        if ($IsMacOS) {
-            "macos"
-        } else {
-            "linux"
-        }
-    }
-    "Win32NT" { "windows" }
-    default { throw "Unsupported platform" }
+$OS = if ($IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6)) {
+    "windows"
+} elseif ($IsMacOS) {
+    "macos"
+} elseif ($IsLinux) {
+    "linux"
+} else {
+    throw "Unsupported platform"
 }
 
 $RUNTIME_ID = switch ($OS) {
@@ -34,27 +32,39 @@ $DOTNET_ROOT = switch ($OS) {
         }
     }
     "linux" { "/usr/share/dotnet" }
-    "windows" { "$env:ProgramFiles\dotnet" }
+    "windows" { 
+        if (Test-Path "${env:ProgramFiles}\dotnet") {
+            "${env:ProgramFiles}\dotnet"
+        } elseif (Test-Path "${env:ProgramFiles(x86)}\dotnet") {
+            "${env:ProgramFiles(x86)}\dotnet"
+        } else {
+            throw ".NET SDK not found in Program Files"
+        }
+    }
 }
+
+# Convert paths to platform-specific format
+$BUILD_DIR = Join-Path $PWD "build"
+$OUTPUT_DIR = Join-Path "bin"
 
 Write-Host "Detected OS: $OS"
 Write-Host "Runtime Identifier: $RUNTIME_ID"
 Write-Host "DOTNET_ROOT: $DOTNET_ROOT"
 
 # Store root directory
-$ROOT_DIR = Get-Location
+$ROOT_DIR = $PWD
 
 # Create build directory
-New-Item -ItemType Directory -Force -Path build | Out-Null
-Set-Location build
+New-Item -ItemType Directory -Force -Path $BUILD_DIR | Out-Null
+Set-Location $BUILD_DIR
 
 # Create output directory
-$OUTPUT_DIR = "bin"
 New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
 
 # Build native library and tests
 Write-Host "Building native library and tests..."
-cmake .. -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUTPUT_DIR" -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$OUTPUT_DIR"
+$CMAKE_OUTPUT_DIR = Join-Path $OUTPUT_DIR
+cmake .. "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$CMAKE_OUTPUT_DIR" "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$CMAKE_OUTPUT_DIR"
 cmake --build . --config Release
 
 # Go back to root directory
@@ -62,15 +72,16 @@ Set-Location $ROOT_DIR
 
 # Build test library
 Write-Host "Building test library..."
-Set-Location tests/TestLibrary
+Set-Location (Join-Path "tests" "TestLibrary")
 if (-not (Test-Path "TestLibrary.csproj")) {
     throw "Error: TestLibrary.csproj not found in $(Get-Location)"
 }
-dotnet publish -c Release -r $RUNTIME_ID -o "../../build/tests"
+$TEST_OUTPUT = Join-Path $ROOT_DIR "build" "tests"
+dotnet publish -c Release -r $RUNTIME_ID -o $TEST_OUTPUT
 Set-Location $ROOT_DIR
 
 # Run tests
-Set-Location build
+Set-Location $BUILD_DIR
 Write-Host "Running tests..."
 ctest --verbose --output-on-failure
 Set-Location $ROOT_DIR
@@ -79,32 +90,34 @@ Set-Location $ROOT_DIR
 Write-Host "Building .NET libraries..."
 
 # Build NativeAotPluginHost
-Set-Location src/NativeAotPluginHost
+Set-Location (Join-Path "src" "managed" "NativeAotPluginHost")
 if (-not (Test-Path "NativeAotPluginHost.csproj")) {
     throw "Error: NativeAotPluginHost.csproj not found in $(Get-Location)"
 }
-dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
+$LIB_OUTPUT = Join-Path $ROOT_DIR "build" $OUTPUT_DIR
+dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
 Set-Location $ROOT_DIR
 
 # Build ManagedLibrary
-Set-Location src/ManagedLibrary
+Set-Location (Join-Path "src" "managed" "ManagedLibrary")
 if (-not (Test-Path "ManagedLibrary.csproj")) {
     throw "Error: ManagedLibrary.csproj not found in $(Get-Location)"
 }
-dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
+dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
 Set-Location $ROOT_DIR
 
 # Build demo app
 Write-Host "Building demo app..."
-Set-Location src/DemoApp
+Set-Location (Join-Path "src" "DemoApp")
 if (-not (Test-Path "DemoApp.csproj")) {
     throw "Error: DemoApp.csproj not found in $(Get-Location)"
 }
-dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
+$DEMO_OUTPUT = Join-Path $ROOT_DIR "build" $OUTPUT_DIR
+dotnet publish -c Release -r $RUNTIME_ID -o $DEMO_OUTPUT
 Set-Location $ROOT_DIR
 
 Write-Host "Build completed successfully!"
 Write-Host "All outputs can be found in: build/$OUTPUT_DIR"
 Write-Host ""
 Write-Host "Directory structure:"
-Get-ChildItem "build/$OUTPUT_DIR" | Format-Table Name, Length, LastWriteTime 
+Get-ChildItem (Join-Path "build" $OUTPUT_DIR) | Format-Table Name, Length, LastWriteTime 
