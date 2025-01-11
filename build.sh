@@ -3,6 +3,8 @@
 # Exit on error
 set -e
 
+rm -rf build
+
 # Detect OS
 OS="unknown"
 RUNTIME_ID="unknown"
@@ -75,7 +77,7 @@ cd "$ROOT_DIR"
 # Run tests
 cd build
 echo "Running tests..."
-# ctest --verbose --output-on-failure
+ctest --verbose --output-on-failure
 cd "$ROOT_DIR"
 
 # Build demo app (after DemoLibrary is built)

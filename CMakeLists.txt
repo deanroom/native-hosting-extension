@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
 project(NativeHostingExtension)
 
-# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64")
+endif()
 
 # Find .NET Core SDK path
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
@@ -40,11 +43,7 @@ message(STATUS "Using .NET SDK version: ${SDK_VERSION}")
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     set(HOST_ARCH "win-x64")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
-        set(HOST_ARCH "osx-arm64")
-    else()
-        set(HOST_ARCH "osx-x64")
-    endif()
+    set(HOST_ARCH "osx-arm64")  # Force ARM64 on macOS
 else()
     set(HOST_ARCH "linux-x64")
 endif()
@@ -91,8 +90,17 @@ enable_testing()
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Add subdirectories
 add_subdirectory(src/native)
-add_subdirectory(tests) 
+add_subdirectory(tests)
+
+# Build managed projects
+add_custom_target(DemoLibrary ALL
+    COMMAND ${DOTNET_ROOT}/dotnet build ${CMAKE_SOURCE_DIR}/src/managed/DemoLibrary/DemoLibrary.csproj -c Release -o ${CMAKE_BINARY_DIR}/bin
+    COMMENT "Building DemoLibrary"
+)
+
+# Make native components depend on managed components
+add_dependencies(NativeHosting DemoLibrary) 

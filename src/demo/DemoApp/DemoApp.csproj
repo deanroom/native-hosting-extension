@@ -21,9 +21,4 @@
   <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
     <DefineConstants>__linux__</DefineConstants>
   </PropertyGroup>
-
-  <ItemGroup>
-    <NativeLibrary Include="../../build/bin/libNativeHosting.a" />
-  </ItemGroup>
-
 </Project> 

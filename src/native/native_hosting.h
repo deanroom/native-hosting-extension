@@ -7,7 +7,11 @@
         #define NATIVE_HOSTING_API __declspec(dllimport)
     #endif
 #else
-    #define NATIVE_HOSTING_API
+    #ifdef NATIVE_HOSTING_EXPORTS
+        #define NATIVE_HOSTING_API __attribute__((visibility("default")))
+    #else
+        #define NATIVE_HOSTING_API
+    #endif
 #endif
 
 #include <string>
