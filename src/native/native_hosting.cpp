@@ -19,6 +19,7 @@
 // Globals for hosting
 static hostfxr_handle cxt = nullptr;
 static load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = nullptr;
+static hostfxr_close_fn hostfxr_close_ptr = nullptr;
 
 bool InitializeRuntime(const char* runtimeConfigPath) {
     // Get hostfxr path
@@ -56,6 +57,18 @@ bool InitializeRuntime(const char* runtimeConfigPath) {
 #else
         dlsym(lib, "hostfxr_get_runtime_delegate");
 #endif
+
+    hostfxr_close_ptr = (hostfxr_close_fn)
+#ifdef _WIN32
+        GetProcAddress((HMODULE)lib, "hostfxr_close");
+#else
+        dlsym(lib, "hostfxr_close");
+#endif
+
+    if (!init_fptr || !get_delegate_fptr || !hostfxr_close_ptr) {
+        std::cerr << "Failed to get hostfxr function pointers" << std::endl;
+        return false;
+    }
 
     // Initialize runtime
     rc = init_fptr(runtimeConfigPath, nullptr, &cxt);
@@ -107,9 +120,10 @@ void* LoadAssemblyAndGetFunctionPointer(
 }
 
 void CloseRuntime() {
-    if (cxt != nullptr) {
-        hostfxr_close(cxt);
+    if (cxt != nullptr && hostfxr_close_ptr != nullptr) {
+        hostfxr_close_ptr(cxt);
         cxt = nullptr;
     }
     load_assembly_and_get_function_pointer = nullptr;
+    hostfxr_close_ptr = nullptr;
 } 
