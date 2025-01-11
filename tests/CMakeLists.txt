@@ -19,10 +19,15 @@ target_link_libraries(native_hosting_tests
     GTest::gtest_main
 )
 
+if(APPLE)
+    target_link_libraries(native_hosting_tests PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
+endif()
+
 # Include directories
 target_include_directories(native_hosting_tests
     PRIVATE
     ${CMAKE_SOURCE_DIR}/src/native
+    ${DOTNET_HOSTING_INCLUDE_PATH}
 )
 
 # Add test to CTest

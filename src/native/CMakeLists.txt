@@ -1,4 +1,4 @@
-add_library(NativeHosting SHARED
+add_library(NativeHosting STATIC
     native_hosting.cpp
     native_hosting.h
 )
@@ -14,9 +14,9 @@ target_link_directories(NativeHosting PRIVATE
 
 if(WIN32)
     target_compile_definitions(NativeHosting PRIVATE NATIVE_HOSTING_EXPORTS)
-    target_link_libraries(NativeHosting PRIVATE libnethost)
+    target_link_libraries(NativeHosting PRIVATE nethost)
 elseif(APPLE)
-    target_link_libraries(NativeHosting PRIVATE libnethost.dylib)
+    target_link_libraries(NativeHosting PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
 else()
     target_link_libraries(NativeHosting PRIVATE nethost)
 endif() 

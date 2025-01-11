@@ -9,7 +9,7 @@ RUNTIME_ID="unknown"
 case "$(uname)" in
     "Darwin")
         OS="macos"
-        RUNTIME_ID="osx-x64"
+        RUNTIME_ID="osx-arm64"
         # Check if dotnet is installed via homebrew
         if [ -d "/opt/homebrew/share/dotnet" ]; then
             export DOTNET_ROOT="/opt/homebrew/share/dotnet"
