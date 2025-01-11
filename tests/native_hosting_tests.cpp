@@ -37,7 +37,7 @@ TEST_F(NativeHostingTest, ReturnConstant) {
     
     void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
-        "TestLibrary.TestClass",
+        "TestLibrary.TestClass,TestLibrary",
         "ReturnConstant",
         "TestLibrary.ReturnConstantDelegate"
     );
@@ -53,7 +53,7 @@ TEST_F(NativeHostingTest, AddNumbers) {
     
     void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
-        "TestLibrary.TestClass",
+        "TestLibrary.TestClass,TestLibrary",
         "AddNumbers",
         "TestLibrary.AddNumbersDelegate"
     );
@@ -68,7 +68,7 @@ TEST_F(NativeHostingTest, AddNumbers) {
 TEST_F(NativeHostingTest, InvalidAssemblyPath) {
     void* fnPtr = load_assembly_and_get_function_pointer(
         "NonExistentAssembly.dll",
-        "TestLibrary.TestClass",
+        "TestLibrary.TestClass,TestLibrary",
         "ReturnConstant",
         "TestLibrary.ReturnConstantDelegate"
     );
@@ -80,7 +80,7 @@ TEST_F(NativeHostingTest, InvalidAssemblyPath) {
 TEST_F(NativeHostingTest, InvalidTypeName) {
     void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
-        "TestLibrary.NonExistentClass",
+        "TestLibrary.NonExistentClass,TestLibrary",
         "ReturnConstant",
         "TestLibrary.ReturnConstantDelegate"
     );
@@ -92,7 +92,7 @@ TEST_F(NativeHostingTest, InvalidTypeName) {
 TEST_F(NativeHostingTest, InvalidMethodName) {
     void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
-        "TestLibrary.TestClass",
+        "TestLibrary.TestClass,TestLibrary",
         "NonExistentMethod",
         "TestLibrary.ReturnConstantDelegate"
     );
@@ -106,7 +106,7 @@ TEST_F(NativeHostingTest, MultipleMethodCalls) {
     
     void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
-        "TestLibrary.TestClass",
+        "TestLibrary.TestClass,TestLibrary",
         "AddNumbers",
         "TestLibrary.AddNumbersDelegate"
     );

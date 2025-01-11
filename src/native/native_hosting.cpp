@@ -17,7 +17,6 @@
 #endif
 
 // Globals for native hosting
-static hostfxr_handle cxt = nullptr;
 static load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_ptr = nullptr;
 static hostfxr_close_fn hostfxr_close_ptr = nullptr;
 
@@ -75,10 +74,18 @@ bool initialize_runtime(const char *runtimeConfigPath)
         return false;
     }
 
+    hostfxr_handle cxt = nullptr;
     // Initialize runtime
+    // hostfxr_initialize_for_runtime_config_fn has the Return value:
+    //    Success                            - Hosting components were successfully initialized
+    //    Success_HostAlreadyInitialized     - Config is compatible with already initialized hosting components
+    //    Success_DifferentRuntimeProperties - Config has runtime properties that differ from already initialized hosting components
+    //    CoreHostIncompatibleConfig         - Config is incompatible with already initialized hosting components
+    //  we treat rc > 1 as failed, because we except the runtime will has the same config as the one we initialized
     rc = init_fptr(runtimeConfigPath, nullptr, &cxt);
-    if (rc != 0 || cxt == nullptr)
+    if (rc > 1 || cxt == nullptr)
     {
+        hostfxr_close_ptr(cxt);
         std::cerr << "Failed to initialize runtime" << std::endl;
         return false;
     }
@@ -91,10 +98,12 @@ bool initialize_runtime(const char *runtimeConfigPath)
 
     if (rc != 0 || load_assembly_and_get_function_ptr == nullptr)
     {
+        hostfxr_close_ptr(cxt);
         std::cerr << "Failed to get load_assembly_and_get_function_ptr" << std::endl;
         return false;
     }
 
+    hostfxr_close_ptr(cxt);
     return true;
 }
 
@@ -134,11 +143,6 @@ void *load_assembly_and_get_function_pointer(
 // Close the runtime and cleanup
 void close_runtime()
 {
-    if (cxt != nullptr && hostfxr_close_ptr != nullptr)
-    {
-        hostfxr_close_ptr(cxt);
-        cxt = nullptr;
-    }
     load_assembly_and_get_function_ptr = nullptr;
     hostfxr_close_ptr = nullptr;
 }

@@ -71,13 +71,13 @@ if [ ! -f "TestLibrary.csproj" ]; then
     echo "Error: TestLibrary.csproj not found in $(pwd)"
     exit 1
 fi
-dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR/test"
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/tests"
 cd "$ROOT_DIR"
 
 # Run tests
 cd build
 echo "Running tests..."
-# ctest --verbose --output-on-failure
+ctest --verbose --output-on-failure
 cd "$ROOT_DIR"
 
 # Build demo app (after DemoLibrary is built)
