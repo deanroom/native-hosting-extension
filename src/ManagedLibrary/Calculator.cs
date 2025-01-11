@@ -6,18 +6,7 @@ namespace ManagedLibrary;
 public static class Calculator
 {
     private static ILogger? _logger;
-    private static ILoggerFactory? _loggerFactory;
-
-    [UnmanagedCallersOnly]
-    public static void SetLoggerFactory(IntPtr loggerFactory)
-    {
-        if (loggerFactory != IntPtr.Zero)
-        {
-            _loggerFactory = (ILoggerFactory)GCHandle.FromIntPtr(loggerFactory).Target!;
-            _logger = _loggerFactory.CreateLogger(nameof(Calculator));
-        }
-    }
-
+    
     [UnmanagedCallersOnly]
     public static void SetLogger(IntPtr logger)
     {

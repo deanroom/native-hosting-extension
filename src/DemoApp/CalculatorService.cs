@@ -9,26 +9,18 @@ namespace DemoApp;
 public class CalculatorService : BackgroundService
 {
     private readonly ILogger<CalculatorService> _logger;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly PluginHost _pluginHost;
     private AddDelegate? _add;
     private SubtractDelegate? _subtract;
     private Hello? _hello;
-    private SetLoggerFactory? _setLoggerFactory;
-    private SetLogger? _setLogger;
-    private GCHandle _loggerFactoryHandle;
-    private GCHandle _loggerHandle;
 
     // Define delegate types
     private delegate int AddDelegate(int a, int b);
     private delegate int SubtractDelegate(int a, int b);
     private delegate void Hello();
-    private delegate void SetLoggerFactory(IntPtr loggerFactory);
-    private delegate void SetLogger(IntPtr logger);
-    public CalculatorService(ILogger<CalculatorService> logger, ILoggerFactory loggerFactory, PluginHost pluginHost)
+    public CalculatorService(ILogger<CalculatorService> logger, PluginHost pluginHost)
     {
         _logger = logger;
-        _loggerFactory = loggerFactory;
         _pluginHost = pluginHost;
     }
 
@@ -77,38 +69,6 @@ public class CalculatorService : BackgroundService
             "ManagedLibrary.Calculator, ManagedLibrary",
             "Hello");
 
-        // Load SetLoggerFactory method
-        _logger.LogInformation("Loading SetLoggerFactory method...");
-        _setLoggerFactory = _pluginHost.GetFunction<SetLoggerFactory>(
-            assemblyPath,
-            "ManagedLibrary.Calculator, ManagedLibrary",
-            "SetLoggerFactory");
-
-        // Load SetLogger method
-        _logger.LogInformation("Loading SetLogger method...");
-        _setLogger = _pluginHost.GetFunction<SetLogger>(
-            assemblyPath,
-            "ManagedLibrary.Calculator, ManagedLibrary",
-            "SetLogger");
-
-        var calculatorLogger = _loggerFactory.CreateLogger("ManagedLibrary.Calculator");
-        
-        // Free existing handles if they are allocated
-        if (_loggerFactoryHandle.IsAllocated)
-            _loggerFactoryHandle.Free();
-        if (_loggerHandle.IsAllocated)
-            _loggerHandle.Free();
-
-        // Create new handles
-        _loggerFactoryHandle = GCHandle.Alloc(_loggerFactory);
-        _loggerHandle = GCHandle.Alloc(calculatorLogger);
-
-        _logger.LogInformation("Setting logger factory");
-        _setLoggerFactory?.Invoke(GCHandle.ToIntPtr(_loggerFactoryHandle));
-
-        _logger.LogInformation("Setting calculator logger");
-        _setLogger?.Invoke(GCHandle.ToIntPtr(_loggerHandle));
-
         _logger.LogInformation("Calculator is ready. Available commands:");
         _logger.LogInformation("- add(x,y)");
         _logger.LogInformation("- sub(x,y)");
@@ -122,7 +82,6 @@ public class CalculatorService : BackgroundService
         {
             if (Console.KeyAvailable)
             {
-                await Console.Out.WriteLineAsync("Enter command :");
                 var input = await Console.In.ReadLineAsync(stoppingToken);
                 if (string.IsNullOrEmpty(input)) continue;
 
@@ -178,10 +137,6 @@ public class CalculatorService : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Stopping calculator demo service");
-        if (_loggerFactoryHandle.IsAllocated)
-            _loggerFactoryHandle.Free();
-        if (_loggerHandle.IsAllocated)
-            _loggerHandle.Free();
         _pluginHost.Dispose();
         await base.StopAsync(cancellationToken);
     }
