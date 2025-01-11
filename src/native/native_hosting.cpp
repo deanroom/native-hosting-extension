@@ -140,7 +140,8 @@ void *load_assembly_and_get_function_pointer(
     return function_ptr;
 }
 
-// Close the runtime and cleanup
+// Close the runtime and cleanup, in fact it can not really close the runtime,
+// because native hosting does not support it, just reset the function pointers
 void close_runtime()
 {
     load_assembly_and_get_function_ptr = nullptr;

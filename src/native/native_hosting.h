@@ -27,6 +27,7 @@ extern "C"
         const char *typeName,
         const char *methodName,
         const char *delegateTypeName);
-
+        
+    // Close the runtime and cleanup
     NATIVE_HOSTING_API void close_runtime();
 }
