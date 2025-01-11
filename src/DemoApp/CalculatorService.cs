@@ -1,24 +1,32 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using DemoApp;
+using NativeAotPluginHost;
+using System.Runtime.InteropServices;
 
-public class CalculatorDemoService : BackgroundService
+namespace DemoApp;
+
+public class CalculatorService : BackgroundService
 {
-    private readonly ILogger<CalculatorDemoService> _logger;
-    private readonly NativeAotPluginHost _pluginHost;
+    private readonly ILogger<CalculatorService> _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly PluginHost _pluginHost;
     private AddDelegate? _add;
     private SubtractDelegate? _subtract;
     private Hello? _hello;
+    private SetLoggerFactory? _setLoggerFactory;
+    private SetLogger? _setLogger;
 
     // Define delegate types
     private delegate int AddDelegate(int a, int b);
     private delegate int SubtractDelegate(int a, int b);
     private delegate void Hello();
-
-    public CalculatorDemoService(ILogger<CalculatorDemoService> logger, NativeAotPluginHost pluginHost)
+    private delegate void SetLoggerFactory(IntPtr loggerFactory);
+    private delegate void SetLogger(IntPtr logger);
+    public CalculatorService(ILogger<CalculatorService> logger, ILoggerFactory loggerFactory, PluginHost pluginHost)
     {
         _logger = logger;
+        _loggerFactory = loggerFactory;
         _pluginHost = pluginHost;
     }
 
@@ -67,9 +75,29 @@ public class CalculatorDemoService : BackgroundService
             "ManagedLibrary.Calculator, ManagedLibrary",
             "Hello");
 
+        // Load SetLoggerFactory method
+        _logger.LogInformation("Loading SetLoggerFactory method...");
+        _setLoggerFactory = _pluginHost.GetFunction<SetLoggerFactory>(
+            assemblyPath,
+            "ManagedLibrary.Calculator, ManagedLibrary",
+            "SetLoggerFactory");
+
+        // Load SetLogger method
+        _logger.LogInformation("Loading SetLogger method...");
+        _setLogger = _pluginHost.GetFunction<SetLogger>(
+            assemblyPath,
+            "ManagedLibrary.Calculator, ManagedLibrary",
+            "SetLogger");
+
+        var calculatorLogger = _loggerFactory.CreateLogger("ManagedLibrary.Calculator");
+        var loggerFactoryHandle = GCHandle.Alloc(_loggerFactory);
+        var calculatorLoggerHandle = GCHandle.Alloc(calculatorLogger);
+        _setLoggerFactory?.Invoke(loggerFactoryHandle.ToIntPtr());   
+        _setLogger?.Invoke(calculatorLoggerHandle.ToIntPtr());
+        
         _logger.LogInformation("Calculator is ready. Available commands:");
         _logger.LogInformation("- add(x,y)");
-        _logger.LogInformation("- subtract(x,y)");
+        _logger.LogInformation("- sub(x,y)");
         _logger.LogInformation("- hello");
         _logger.LogInformation("Press Ctrl+C to exit");
     }
@@ -105,7 +133,7 @@ public class CalculatorDemoService : BackgroundService
                             _logger.LogInformation("Result: {Result}", addResult);
                             break;
 
-                        case "subtract" when a.HasValue && b.HasValue:
+                        case "sub" when a.HasValue && b.HasValue:
                             int subtractResult = _subtract?.Invoke(a.Value, b.Value) ??
                                 throw new InvalidOperationException("Subtract function not loaded");
                             _logger.LogInformation("Result: {Result}", subtractResult);

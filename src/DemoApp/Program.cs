@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 namespace DemoApp;
+using NativeAotPluginHost;
 
 partial class Program
 {
@@ -13,8 +14,8 @@ partial class Program
 
         // Add services to the container
         builder.Services.AddLogging(builder => builder.AddConsole());
-        builder.Services.AddSingleton<NativeAotPluginHost>();
-        builder.Services.AddHostedService<CalculatorDemoService>();
+        builder.Services.AddSingleton<PluginHost>();
+        builder.Services.AddHostedService<CalculatorService>();
 
         // Build and run the host
         using var host = builder.Build();
