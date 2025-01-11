@@ -103,4 +103,4 @@ add_custom_target(DemoLibrary ALL
 )
 
 # Make native components depend on managed components
-add_dependencies(NativeHosting DemoLibrary) 
+add_dependencies(NativeAotPluginHost DemoLibrary) 

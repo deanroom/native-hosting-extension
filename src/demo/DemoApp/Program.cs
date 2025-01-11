@@ -10,7 +10,7 @@ partial class Program
 
     static void Main(string[] args)
     {
-        using var nativeHost = new NativeHosting();
+        using var pluginHost = new NativeAotPluginHost();
         try
         {
             string runtimeConfigPath = Path.Combine(AppContext.BaseDirectory, "DemoLibrary.runtimeconfig.json");
@@ -20,11 +20,11 @@ partial class Program
             Console.WriteLine($"Using config from: {runtimeConfigPath}");
 
             Console.WriteLine("Initializing runtime...");
-            nativeHost.Initialize(runtimeConfigPath);
+            pluginHost.Initialize(runtimeConfigPath);
 
             // Load and test Add method
             Console.WriteLine("Loading Add method...");
-            var add = nativeHost.GetFunction<AddDelegate>(
+            var add = pluginHost.GetFunction<AddDelegate>(
                 assemblyPath,
                 "DemoLibrary.Calculator, DemoLibrary",
                 "Add");
@@ -37,7 +37,7 @@ partial class Program
 
             // Load and test Subtract method
             Console.WriteLine("\nLoading Subtract method...");
-            var subtract = nativeHost.GetFunction<SubtractDelegate>(
+            var subtract = pluginHost.GetFunction<SubtractDelegate>(
                 assemblyPath,
                 "DemoLibrary.Calculator, DemoLibrary",
                 "Subtract");

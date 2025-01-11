@@ -2,9 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace DemoApp;
 
-public partial class NativeHosting : IDisposable
+public partial class NativeAotPluginHost : IDisposable
 {
-    private const string LibraryName = "NativeHosting";
+    private const string LibraryName = "NativeAotPluginHost";
     private bool _isInitialized;
     private bool _isDisposed;
 
@@ -78,7 +78,7 @@ public partial class NativeHosting : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    ~NativeHosting()
+    ~NativeAotPluginHost()
     {
         Dispose(false);
     }

@@ -15,8 +15,8 @@ add_executable(native_hosting_tests
 # Link against Google Test and our library
 target_link_libraries(native_hosting_tests
     PRIVATE
-    NativeHosting
     GTest::gtest_main
+    NativeAotPluginHost
 )
 
 if(APPLE)

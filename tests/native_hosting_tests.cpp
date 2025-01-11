@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "native_hosting.h"
+#include "native_aot_plugin_host.h"
 #include <filesystem>
 #include <string>
 

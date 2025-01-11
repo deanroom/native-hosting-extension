@@ -1,4 +1,4 @@
-#include "native_hosting.h"
+#include "native_aot_plugin_host.h"
 #include <nethost.h>
 #include <coreclr_delegates.h>
 #include <hostfxr.h>
@@ -114,7 +114,6 @@ void *load_assembly_and_get_function_pointer(
     const char *methodName,
     const char *delegateTypeName)
 {
-
     if (load_assembly_and_get_function_ptr == nullptr)
     {
         std::cerr << "Runtime not initialized" << std::endl;
@@ -140,10 +139,9 @@ void *load_assembly_and_get_function_pointer(
     return function_ptr;
 }
 
-// Close the runtime and cleanup, in fact it can not really close the runtime,
-// because native hosting does not support it, just reset the function pointers
+// Close the runtime and cleanup
 void close_runtime()
 {
     load_assembly_and_get_function_ptr = nullptr;
     hostfxr_close_ptr = nullptr;
-}
+} 
