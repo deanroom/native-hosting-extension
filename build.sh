@@ -54,15 +54,6 @@ cmake --build . --config Release
 # Go back to root directory
 cd "$ROOT_DIR"
 
-# Build .NET library first (since DemoApp depends on it)
-echo "Building .NET library..."
-cd src/managed/DemoLibrary
-if [ ! -f "DemoLibrary.csproj" ]; then
-    echo "Error: DemoLibrary.csproj not found in $(pwd)"
-    exit 1
-fi
-dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
-cd "$ROOT_DIR"
 
 # Build test library
 echo "Building test library..."
@@ -80,14 +71,25 @@ echo "Running tests..."
 ctest --verbose --output-on-failure
 cd "$ROOT_DIR"
 
+# Build .NET library first (since DemoApp depends on it)
+echo "Building .NET library..."
+cd src/ManagedLibrary
+if [ ! -f "ManagedLibrary.csproj" ]; then
+    echo "Error: ManagedLibrary.csproj not found in $(pwd)"
+    exit 1
+fi
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
+cd "$ROOT_DIR"
+
+
 # Build demo app (after DemoLibrary is built)
 echo "Building demo app..."
-cd src/demo/DemoApp
+cd src/DemoApp
 if [ ! -f "DemoApp.csproj" ]; then
     echo "Error: DemoApp.csproj not found in $(pwd)"
     exit 1
 fi
-dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
 cd "$ROOT_DIR"
 
 echo "Build completed successfully!"

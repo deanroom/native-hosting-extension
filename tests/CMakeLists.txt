@@ -26,7 +26,7 @@ endif()
 # Include directories
 target_include_directories(native_hosting_tests
     PRIVATE
-    ${CMAKE_SOURCE_DIR}/src/native
+    ${CMAKE_SOURCE_DIR}/src/native_aot_plugin_host
     ${DOTNET_HOSTING_INCLUDE_PATH}
 )
 

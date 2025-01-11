@@ -13,8 +13,8 @@ partial class Program
         using var pluginHost = new NativeAotPluginHost();
         try
         {
-            string runtimeConfigPath = Path.Combine(AppContext.BaseDirectory, "DemoLibrary.runtimeconfig.json");
-            string assemblyPath = Path.Combine(AppContext.BaseDirectory, "DemoLibrary.dll");
+            string runtimeConfigPath = Path.Combine(AppContext.BaseDirectory, "ManagedLibrary.runtimeconfig.json");
+            string assemblyPath = Path.Combine(AppContext.BaseDirectory, "ManagedLibrary.dll");
 
             Console.WriteLine($"Loading assembly from: {assemblyPath}");
             Console.WriteLine($"Using config from: {runtimeConfigPath}");
@@ -26,7 +26,7 @@ partial class Program
             Console.WriteLine("Loading Add method...");
             var add = pluginHost.GetFunction<AddDelegate>(
                 assemblyPath,
-                "DemoLibrary.Calculator, DemoLibrary",
+                "ManagedLibrary.Calculator, ManagedLibrary",
                 "Add");
 
             // Test the Add method
@@ -39,7 +39,7 @@ partial class Program
             Console.WriteLine("\nLoading Subtract method...");
             var subtract = pluginHost.GetFunction<SubtractDelegate>(
                 assemblyPath,
-                "DemoLibrary.Calculator, DemoLibrary",
+                "ManagedLibrary.Calculator, ManagedLibrary",
                 "Subtract");
 
             Console.WriteLine($"Calling Subtract({a}, {b})...");

@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DemoLibrary;
+namespace ManagedLibrary;
 
 public static class Calculator
 {

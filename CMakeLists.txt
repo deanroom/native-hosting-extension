@@ -93,14 +93,5 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Add subdirectories
-add_subdirectory(src/native)
+add_subdirectory(src/native_aot_plugin_host)
 add_subdirectory(tests)
-
-# Build managed projects
-add_custom_target(DemoLibrary ALL
-    COMMAND ${DOTNET_ROOT}/dotnet build ${CMAKE_SOURCE_DIR}/src/managed/DemoLibrary/DemoLibrary.csproj -c Release -o ${CMAKE_BINARY_DIR}/bin
-    COMMENT "Building DemoLibrary"
-)
-
-# Make native components depend on managed components
-add_dependencies(NativeAotPluginHost DemoLibrary) 
