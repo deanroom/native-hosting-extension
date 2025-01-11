@@ -1,9 +1,11 @@
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 
 namespace TestLibrary;
 
-public static class TestClass
+public class TestClass
 {
+
     [UnmanagedCallersOnly]
     public static int ReturnConstant()
     {

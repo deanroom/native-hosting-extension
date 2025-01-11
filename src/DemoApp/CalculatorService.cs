@@ -16,6 +16,8 @@ public class CalculatorService : BackgroundService
     private Hello? _hello;
     private SetLoggerFactory? _setLoggerFactory;
     private SetLogger? _setLogger;
+    private GCHandle _loggerFactoryHandle;
+    private GCHandle _loggerHandle;
 
     // Define delegate types
     private delegate int AddDelegate(int a, int b);
@@ -90,11 +92,23 @@ public class CalculatorService : BackgroundService
             "SetLogger");
 
         var calculatorLogger = _loggerFactory.CreateLogger("ManagedLibrary.Calculator");
-        var loggerFactoryHandle = GCHandle.Alloc(_loggerFactory);
-        var calculatorLoggerHandle = GCHandle.Alloc(calculatorLogger);
-        _setLoggerFactory?.Invoke(loggerFactoryHandle.ToIntPtr());   
-        _setLogger?.Invoke(calculatorLoggerHandle.ToIntPtr());
         
+        // Free existing handles if they are allocated
+        if (_loggerFactoryHandle.IsAllocated)
+            _loggerFactoryHandle.Free();
+        if (_loggerHandle.IsAllocated)
+            _loggerHandle.Free();
+
+        // Create new handles
+        _loggerFactoryHandle = GCHandle.Alloc(_loggerFactory);
+        _loggerHandle = GCHandle.Alloc(calculatorLogger);
+
+        _logger.LogInformation("Setting logger factory");
+        _setLoggerFactory?.Invoke(GCHandle.ToIntPtr(_loggerFactoryHandle));
+
+        _logger.LogInformation("Setting calculator logger");
+        _setLogger?.Invoke(GCHandle.ToIntPtr(_loggerHandle));
+
         _logger.LogInformation("Calculator is ready. Available commands:");
         _logger.LogInformation("- add(x,y)");
         _logger.LogInformation("- sub(x,y)");
@@ -164,6 +178,10 @@ public class CalculatorService : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Stopping calculator demo service");
+        if (_loggerFactoryHandle.IsAllocated)
+            _loggerFactoryHandle.Free();
+        if (_loggerHandle.IsAllocated)
+            _loggerHandle.Free();
         _pluginHost.Dispose();
         await base.StopAsync(cancellationToken);
     }

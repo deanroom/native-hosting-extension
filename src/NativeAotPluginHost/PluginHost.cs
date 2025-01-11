@@ -1,24 +1,21 @@
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 
-namespace DemoApp;
+namespace NativeAotPluginHost;
 
 
 /// <summary>
 /// 原生 AOT 插件宿主库,这是 native_aot_plugin_host 库的 .NET 包装器,
 /// 用于在 AOT 编译的 .NET 应用程序中动态加载和执行托管程序集中的方法。
 /// </summary>
-public partial class NativeAotPluginHost : IDisposable
+public partial class PluginHost : IDisposable
 {
     private const string LibraryName = "NativeAotPluginHost";
     private bool _isInitialized;
     private bool _isDisposed;
-    
-    private readonly ILogger _logger;
 
-    public NativeAotPluginHost(ILogger<NativeAotPluginHost> logger)
+    public PluginHost()
     {
-        _logger = logger;
     }
 
     [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "initialize_runtime")]
@@ -91,8 +88,8 @@ public partial class NativeAotPluginHost : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    ~NativeAotPluginHost()
+    ~PluginHost()
     {
         Dispose(false);
     }
-} 
+}

@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-rm -rf build
+# rm -rf build
 
 # Detect OS
 OS="unknown"
@@ -78,7 +78,7 @@ if [ ! -f "ManagedLibrary.csproj" ]; then
     echo "Error: ManagedLibrary.csproj not found in $(pwd)"
     exit 1
 fi
-dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
+dotnet publish -c Debug -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
 cd "$ROOT_DIR"
 
 
@@ -89,7 +89,7 @@ if [ ! -f "DemoApp.csproj" ]; then
     echo "Error: DemoApp.csproj not found in $(pwd)"
     exit 1
 fi
-dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
+dotnet publish -c Debug -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
 cd "$ROOT_DIR"
 
 echo "Build completed successfully!"

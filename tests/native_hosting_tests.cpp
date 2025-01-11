@@ -3,6 +3,9 @@
 #include <filesystem>
 #include <string>
 
+// Function type for setting logger factory
+using SetLoggerFactoryDelegate = void(*)(void*);
+
 class NativeHostingTest : public ::testing::Test {
 protected:
     void SetUp() override {
