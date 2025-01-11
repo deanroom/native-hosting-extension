@@ -45,7 +45,7 @@ $DOTNET_ROOT = switch ($OS) {
 
 # Convert paths to platform-specific format
 $BUILD_DIR = Join-Path $PWD "build"
-$OUTPUT_DIR = Join-Path "bin"
+$OUTPUT_DIR = "bin"
 
 Write-Host "Detected OS: $OS"
 Write-Host "Runtime Identifier: $RUNTIME_ID"
@@ -59,12 +59,12 @@ New-Item -ItemType Directory -Force -Path $BUILD_DIR | Out-Null
 Set-Location $BUILD_DIR
 
 # Create output directory
-New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
+$FULL_OUTPUT_DIR = Join-Path $BUILD_DIR $OUTPUT_DIR
+New-Item -ItemType Directory -Force -Path $FULL_OUTPUT_DIR | Out-Null
 
 # Build native library and tests
 Write-Host "Building native library and tests..."
-$CMAKE_OUTPUT_DIR = Join-Path $OUTPUT_DIR
-cmake .. "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$CMAKE_OUTPUT_DIR" "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$CMAKE_OUTPUT_DIR"
+cmake .. "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$FULL_OUTPUT_DIR" "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$FULL_OUTPUT_DIR"
 cmake --build . --config Release
 
 # Go back to root directory
@@ -76,7 +76,7 @@ Set-Location (Join-Path "tests" "TestLibrary")
 if (-not (Test-Path "TestLibrary.csproj")) {
     throw "Error: TestLibrary.csproj not found in $(Get-Location)"
 }
-$TEST_OUTPUT = Join-Path $ROOT_DIR "build" "tests"
+$TEST_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") "tests"
 dotnet publish -c Release -r $RUNTIME_ID -o $TEST_OUTPUT
 Set-Location $ROOT_DIR
 
@@ -90,16 +90,16 @@ Set-Location $ROOT_DIR
 Write-Host "Building .NET libraries..."
 
 # Build NativeAotPluginHost
-Set-Location (Join-Path "src" "managed" "NativeAotPluginHost")
+Set-Location (Join-Path "src" "NativeAotPluginHost")
 if (-not (Test-Path "NativeAotPluginHost.csproj")) {
     throw "Error: NativeAotPluginHost.csproj not found in $(Get-Location)"
 }
-$LIB_OUTPUT = Join-Path $ROOT_DIR "build" $OUTPUT_DIR
+$LIB_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
 dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
 Set-Location $ROOT_DIR
 
 # Build ManagedLibrary
-Set-Location (Join-Path "src" "managed" "ManagedLibrary")
+Set-Location (Join-Path "src" "ManagedLibrary")
 if (-not (Test-Path "ManagedLibrary.csproj")) {
     throw "Error: ManagedLibrary.csproj not found in $(Get-Location)"
 }
@@ -112,7 +112,7 @@ Set-Location (Join-Path "src" "DemoApp")
 if (-not (Test-Path "DemoApp.csproj")) {
     throw "Error: DemoApp.csproj not found in $(Get-Location)"
 }
-$DEMO_OUTPUT = Join-Path $ROOT_DIR "build" $OUTPUT_DIR
+$DEMO_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
 dotnet publish -c Release -r $RUNTIME_ID -o $DEMO_OUTPUT
 Set-Location $ROOT_DIR
 

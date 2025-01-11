@@ -10,7 +10,7 @@ namespace NativeAotPluginHost;
 /// </summary>
 public partial class PluginHost : IDisposable
 {
-    private const string LibraryName = "NativeAotPluginHost";
+    private const string LibraryName = "native_aot_plugin_host";
     private bool _isInitialized;
     private bool _isDisposed;
 
