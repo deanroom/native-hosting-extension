@@ -20,7 +20,14 @@ $OS = if ($IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6)) {
 $RUNTIME_ID = switch ($OS) {
     "macos" { "osx-arm64" }
     "linux" { "linux-x64" }
-    "windows" { "win-x64" }
+    "windows" { 
+        # Check if running on ARM64 Windows
+        if ([System.Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE") -eq "ARM64") {
+            "win-arm64"
+        } else {
+            "win-x64"
+        }
+    }
 }
 
 $DOTNET_ROOT = switch ($OS) {

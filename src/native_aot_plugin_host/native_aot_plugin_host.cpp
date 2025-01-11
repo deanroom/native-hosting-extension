@@ -10,6 +10,38 @@
 #define PATH_SEPARATOR "\\"
 #define MAX_PATH_LENGTH MAX_PATH
 
+// Helper function to convert UTF-8 to wchar_t string (Windows)
+std::wstring Utf8ToWide(const char* utf8Str)
+{
+    if (!utf8Str)
+        return std::wstring();
+
+    int requiredSize = MultiByteToWideChar(CP_UTF8, 0, utf8Str, -1, nullptr, 0);
+    if (requiredSize <= 0)
+    {
+        return std::wstring();
+    }
+
+    std::wstring wideStr(requiredSize, L'\0');
+    if (MultiByteToWideChar(CP_UTF8, 0, utf8Str, -1, &wideStr[0], requiredSize) == 0)
+    {
+        return std::wstring();
+    }
+
+    wideStr.resize(wcslen(wideStr.c_str()));
+    return wideStr;
+}
+
+// Helper function to convert UTF-8 to char_t (wchar_t on Windows, char on Unix)
+std::basic_string<char_t> ToCharT(const char* str)
+{
+#ifdef _WIN32
+    return Utf8ToWide(str);
+#else
+    return std::string(str);
+#endif
+}
+
 // Helper function to get Windows error message
 std::string GetLastErrorAsString()
 {
@@ -59,6 +91,12 @@ std::wstring Utf8ToUtf16(const char *utf8Str)
 #include <limits.h>
 #define PATH_SEPARATOR "/"
 #define MAX_PATH_LENGTH PATH_MAX
+
+// On Unix systems, char_t is char, so no conversion needed
+std::string ToCharT(const char* str)
+{
+    return std::string(str);
+}
 #endif
 
 // Globals for native hosting
@@ -66,7 +104,7 @@ static load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_
 static hostfxr_close_fn hostfxr_close_ptr = nullptr;
 
 // Initialize the .NET runtime
-bool initialize_runtime(const char *runtimeConfigPath)
+bool initialize_runtime(const char* runtimeConfigPath)
 {
     // Get hostfxr path
     char_t hostfxr_path[MAX_PATH_LENGTH];
@@ -81,21 +119,16 @@ bool initialize_runtime(const char *runtimeConfigPath)
 
     // Load hostfxr library
 #ifdef _WIN32
-    std::wstring wideHostfxrPath = Utf8ToUtf16(hostfxr_path);
-    void *lib = LoadLibraryW(wideHostfxrPath.c_str());
-    if (lib == nullptr)
-    {
-        std::cerr << "Failed to load hostfxr. Error: " << GetLastErrorAsString() << std::endl;
-        return false;
-    }
+    void* lib = LoadLibraryW((LPCWSTR)hostfxr_path);
 #else
-    void *lib = dlopen(hostfxr_path, RTLD_LAZY | RTLD_LOCAL);
+    void* lib = dlopen(hostfxr_path, RTLD_LAZY | RTLD_LOCAL);
+#endif
+
     if (lib == nullptr)
     {
-        std::cerr << "Failed to load hostfxr. Error: " << dlerror() << std::endl;
+        std::cerr << "Failed to load hostfxr" << std::endl;
         return false;
     }
-#endif
 
     // Get required functions
     auto init_fptr = (hostfxr_initialize_for_runtime_config_fn)
@@ -121,25 +154,13 @@ bool initialize_runtime(const char *runtimeConfigPath)
 
     if (!init_fptr || !get_delegate_fptr || !hostfxr_close_ptr)
     {
-#ifdef _WIN32
-        std::cerr << "Failed to get hostfxr function pointers. Error: " << GetLastErrorAsString() << std::endl;
-#else
-        std::cerr << "Failed to get hostfxr function pointers. Error: " << dlerror() << std::endl;
-#endif
+        std::cerr << "Failed to get hostfxr function pointers" << std::endl;
         return false;
     }
 
     hostfxr_handle cxt = nullptr;
-
-    // Initialize runtime
-    // hostfxr_initialize_for_runtime_config_fn has the Return value:
-    //    Success                            - Hosting components were successfully initialized
-    //    Success_HostAlreadyInitialized     - Config is compatible with already initialized hosting components
-    //    Success_DifferentRuntimeProperties - Config has runtime properties that differ from already initialized hosting components
-    //    CoreHostIncompatibleConfig         - Config is incompatible with already initialized hosting components
-    //  we treat rc 0,1 as success, because we except the runtime will has the same config as the one we initialized
-    //  and we will ignore the different runtime properties.
-    rc = init_fptr(runtimeConfigPath, nullptr, &cxt);
+    auto config_path = ToCharT(runtimeConfigPath);
+    rc = init_fptr(config_path.c_str(), nullptr, &cxt);
 
     if (rc > 1 || cxt == nullptr)
     {
@@ -151,7 +172,7 @@ bool initialize_runtime(const char *runtimeConfigPath)
     rc = get_delegate_fptr(
         cxt,
         hdt_load_assembly_and_get_function_pointer,
-        (void **)&load_assembly_and_get_function_ptr);
+        (void**)&load_assembly_and_get_function_ptr);
 
     if (rc != 0 || load_assembly_and_get_function_ptr == nullptr)
     {
@@ -165,11 +186,11 @@ bool initialize_runtime(const char *runtimeConfigPath)
 }
 
 // Load an assembly and get a function pointer
-void *load_assembly_and_get_function_pointer(
-    const char *assemblyPath,
-    const char *typeName,
-    const char *methodName,
-    const char *delegateTypeName)
+void* load_assembly_and_get_function_pointer(
+    const char* assemblyPath,
+    const char* typeName,
+    const char* methodName,
+    const char* delegateTypeName)
 {
     if (load_assembly_and_get_function_ptr == nullptr)
     {
@@ -177,19 +198,24 @@ void *load_assembly_and_get_function_pointer(
         return nullptr;
     }
 
-    void *function_ptr = nullptr;
+    void* function_ptr = nullptr;
+
+    auto assembly_path = ToCharT(assemblyPath);
+    auto type_name = ToCharT(typeName);
+    auto method_name = ToCharT(methodName);
+    auto delegate_type_name = ToCharT(delegateTypeName);
 
     int rc = load_assembly_and_get_function_ptr(
-        assemblyPath,
-        typeName,
-        methodName,
+        assembly_path.c_str(),
+        type_name.c_str(),
+        method_name.c_str(),
         UNMANAGEDCALLERSONLY_METHOD,
         nullptr,
         &function_ptr);
 
     if (rc != 0 || function_ptr == nullptr)
     {
-        std::cerr << "Failed to load assembly and get function pointer,errcode:" << rc << std::endl;
+        std::cerr << "Failed to load assembly and get function pointer, errcode:" << rc << std::endl;
         return nullptr;
     }
 

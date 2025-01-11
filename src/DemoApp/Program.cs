@@ -1,52 +1,64 @@
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-namespace DemoApp;
 using NativeAotPluginHost;
 
-partial class Program
+namespace DemoApp;
+
+class Program
 {
-    static async Task Main(string[] args)
+    private delegate int AddDelegate(int a, int b);
+    private delegate int SubtractDelegate(int a, int b);
+    private delegate void Hello();
+
+    static void Main(string[] args)
     {
-        var builder = Host.CreateApplicationBuilder(args);
-
-        // Add services to the container
-        builder.Services.AddLogging(builder => builder.AddConsole());
-        builder.Services.AddSingleton<PluginHost>();
-        builder.Services.AddHostedService<CalculatorService>();
-
-        // Build and run the host
-        using var host = builder.Build();
-        await host.RunAsync();
-    }
-}
-
-public class CommandParser
-{
-    private static readonly Regex CommandRegex = new(@"^(add|sub)\((\d+),(\d+)\)$|^(hello)$", RegexOptions.IgnoreCase);
-
-    public static (string Command, int? A, int? B)? ParseCommand(string input)
-    {
-        var match = CommandRegex.Match(input.Trim());
-        if (!match.Success) return null;
-
-        // Check if it's the hello command
-        if (match.Groups[4].Success)
+        using var pluginHost = new PluginHost();
+        
+        try
         {
-            return ("hello", null, null);
-        }
+            // Initialize runtime
+            string runtimeConfigPath = Path.Combine(AppContext.BaseDirectory, "ManagedLibrary.runtimeconfig.json");
+            string assemblyPath = Path.Combine(AppContext.BaseDirectory, "ManagedLibrary.dll");
 
-        // Otherwise it's a calculator command
-        var command = match.Groups[1].Value.ToLowerInvariant();
-        if (int.TryParse(match.Groups[2].Value, out int a) &&
-            int.TryParse(match.Groups[3].Value, out int b))
+            Console.WriteLine($"Loading assembly from: {assemblyPath}");
+            Console.WriteLine($"Using config from: {runtimeConfigPath}");
+            Console.WriteLine("Initializing runtime...");
+            
+            pluginHost.Initialize(runtimeConfigPath);
+
+            // Load functions
+            var add = pluginHost.GetFunction<AddDelegate>(
+                assemblyPath,
+                "ManagedLibrary.Calculator, ManagedLibrary",
+                "Add");
+
+            var subtract = pluginHost.GetFunction<SubtractDelegate>(
+                assemblyPath,
+                "ManagedLibrary.Calculator, ManagedLibrary",
+                "Subtract");
+
+            var hello = pluginHost.GetFunction<Hello>(
+                assemblyPath,
+                "ManagedLibrary.Calculator, ManagedLibrary",
+                "Hello");
+
+            // Test the functions
+            Console.WriteLine("\nTesting functions:");
+            
+            Console.WriteLine("Calling Add(5, 3)...");
+            int addResult = add(5, 3);
+            Console.WriteLine($"Result: {addResult}");
+
+            Console.WriteLine("\nCalling Subtract(10, 4)...");
+            int subtractResult = subtract(10, 4);
+            Console.WriteLine($"Result: {subtractResult}");
+
+            Console.WriteLine("\nCalling Hello()...");
+            hello();
+        }
+        catch (Exception ex)
         {
-            return (command, a, b);
+            Console.WriteLine($"An error occurred: {ex.Message}");
         }
-
-        return null;
     }
 }
 
