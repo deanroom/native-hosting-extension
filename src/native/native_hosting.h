@@ -18,10 +18,10 @@
 
 extern "C" {
     // Initialize the .NET runtime
-    NATIVE_HOSTING_API bool InitializeRuntime(const char* runtimeConfigPath);
+    NATIVE_HOSTING_API bool initialize_runtime(const char* runtimeConfigPath);
 
     // Load an assembly and get a function pointer
-    NATIVE_HOSTING_API void* LoadAssemblyAndGetFunctionPointer(
+    NATIVE_HOSTING_API void* load_assembly_and_get_function_pointer(
         const char* assemblyPath,
         const char* typeName,
         const char* methodName,
@@ -29,5 +29,5 @@ extern "C" {
     );
 
     // Close the runtime and cleanup
-    NATIVE_HOSTING_API void CloseRuntime();
+    NATIVE_HOSTING_API void close_runtime();
 } 

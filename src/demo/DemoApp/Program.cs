@@ -4,23 +4,24 @@ partial class Program
 {
     private const string LibraryName = "NativeHosting";
 
-    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
-    [return: MarshalAs(UnmanagedType.Bool)]
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "initialize_runtime")]
+    [return: MarshalAs(UnmanagedType.I1)]
     internal static partial bool InitializeRuntime(string runtimeConfigPath);
 
-    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "load_assembly_and_get_function_pointer")]
     internal static partial IntPtr LoadAssemblyAndGetFunctionPointer(
         string assemblyPath,
         string typeName,
         string methodName,
         string delegateTypeName);
 
-    [LibraryImport(LibraryName)]
+    [LibraryImport(LibraryName, EntryPoint = "close_runtime")]
     internal static partial void CloseRuntime();
 
     // Define delegate types matching our Calculator methods
     private delegate int AddDelegate(int a, int b);
     private delegate int SubtractDelegate(int a, int b);
+    
 
     static void Main(string[] args)
     {

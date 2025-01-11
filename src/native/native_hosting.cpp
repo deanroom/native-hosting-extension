@@ -16,12 +16,13 @@
 #define MAX_PATH_LENGTH PATH_MAX
 #endif
 
-// Globals for hosting
+// Globals for native hosting
 static hostfxr_handle cxt = nullptr;
-static load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = nullptr;
+static load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_ptr = nullptr;
 static hostfxr_close_fn hostfxr_close_ptr = nullptr;
 
-bool InitializeRuntime(const char *runtimeConfigPath)
+// Initialize the .NET runtime
+bool initialize_runtime(const char *runtimeConfigPath)
 {
     // Get hostfxr path
     char_t hostfxr_path[MAX_PATH_LENGTH];
@@ -86,25 +87,26 @@ bool InitializeRuntime(const char *runtimeConfigPath)
     rc = get_delegate_fptr(
         cxt,
         hdt_load_assembly_and_get_function_pointer,
-        (void **)&load_assembly_and_get_function_pointer);
+        (void **)&load_assembly_and_get_function_ptr);
 
-    if (rc != 0 || load_assembly_and_get_function_pointer == nullptr)
+    if (rc != 0 || load_assembly_and_get_function_ptr == nullptr)
     {
-        std::cerr << "Failed to get load_assembly_and_get_function_pointer" << std::endl;
+        std::cerr << "Failed to get load_assembly_and_get_function_ptr" << std::endl;
         return false;
     }
 
     return true;
 }
 
-void *LoadAssemblyAndGetFunctionPointer(
+// Load an assembly and get a function pointer
+void *load_assembly_and_get_function_pointer(
     const char *assemblyPath,
     const char *typeName,
     const char *methodName,
     const char *delegateTypeName)
 {
 
-    if (load_assembly_and_get_function_pointer == nullptr)
+    if (load_assembly_and_get_function_ptr == nullptr)
     {
         std::cerr << "Runtime not initialized" << std::endl;
         return nullptr;
@@ -112,7 +114,7 @@ void *LoadAssemblyAndGetFunctionPointer(
 
     void *function_ptr = nullptr;
 
-    int rc = load_assembly_and_get_function_pointer(
+    int rc = load_assembly_and_get_function_ptr(
         assemblyPath,
         typeName,
         methodName,
@@ -129,13 +131,14 @@ void *LoadAssemblyAndGetFunctionPointer(
     return function_ptr;
 }
 
-void CloseRuntime()
+// Close the runtime and cleanup
+void close_runtime()
 {
     if (cxt != nullptr && hostfxr_close_ptr != nullptr)
     {
         hostfxr_close_ptr(cxt);
         cxt = nullptr;
     }
-    load_assembly_and_get_function_pointer = nullptr;
+    load_assembly_and_get_function_ptr = nullptr;
     hostfxr_close_ptr = nullptr;
 }

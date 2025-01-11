@@ -12,11 +12,11 @@ protected:
         configPath = (currentPath / "TestLibrary.runtimeconfig.json").string();
         
         // Initialize runtime
-        ASSERT_TRUE(InitializeRuntime(configPath.c_str())) << "Failed to initialize runtime";
+        ASSERT_TRUE(initialize_runtime(configPath.c_str())) << "Failed to initialize runtime";
     }
 
     void TearDown() override {
-        CloseRuntime();
+        close_runtime();
     }
 
     std::string testLibPath;
@@ -27,15 +27,15 @@ protected:
 TEST_F(NativeHostingTest, InitializeAndCleanup) {
     // Already initialized in SetUp
     // Just verify we can close and reinitialize
-    CloseRuntime();
-    EXPECT_TRUE(InitializeRuntime(configPath.c_str()));
+    close_runtime();
+    EXPECT_TRUE(initialize_runtime(configPath.c_str()));
 }
 
 // Test loading a method that returns a constant
 TEST_F(NativeHostingTest, ReturnConstant) {
     using ReturnConstantDelegate = int(*)();
     
-    void* fnPtr = LoadAssemblyAndGetFunctionPointer(
+    void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
         "TestLibrary.TestClass",
         "ReturnConstant",
@@ -51,7 +51,7 @@ TEST_F(NativeHostingTest, ReturnConstant) {
 TEST_F(NativeHostingTest, AddNumbers) {
     using AddNumbersDelegate = int(*)(int, int);
     
-    void* fnPtr = LoadAssemblyAndGetFunctionPointer(
+    void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
         "TestLibrary.TestClass",
         "AddNumbers",
@@ -66,7 +66,7 @@ TEST_F(NativeHostingTest, AddNumbers) {
 
 // Test error handling - invalid assembly path
 TEST_F(NativeHostingTest, InvalidAssemblyPath) {
-    void* fnPtr = LoadAssemblyAndGetFunctionPointer(
+    void* fnPtr = load_assembly_and_get_function_pointer(
         "NonExistentAssembly.dll",
         "TestLibrary.TestClass",
         "ReturnConstant",
@@ -78,7 +78,7 @@ TEST_F(NativeHostingTest, InvalidAssemblyPath) {
 
 // Test error handling - invalid type name
 TEST_F(NativeHostingTest, InvalidTypeName) {
-    void* fnPtr = LoadAssemblyAndGetFunctionPointer(
+    void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
         "TestLibrary.NonExistentClass",
         "ReturnConstant",
@@ -90,7 +90,7 @@ TEST_F(NativeHostingTest, InvalidTypeName) {
 
 // Test error handling - invalid method name
 TEST_F(NativeHostingTest, InvalidMethodName) {
-    void* fnPtr = LoadAssemblyAndGetFunctionPointer(
+    void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
         "TestLibrary.TestClass",
         "NonExistentMethod",
@@ -104,7 +104,7 @@ TEST_F(NativeHostingTest, InvalidMethodName) {
 TEST_F(NativeHostingTest, MultipleMethodCalls) {
     using AddNumbersDelegate = int(*)(int, int);
     
-    void* fnPtr = LoadAssemblyAndGetFunctionPointer(
+    void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
         "TestLibrary.TestClass",
         "AddNumbers",
