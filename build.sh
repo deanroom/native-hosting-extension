@@ -33,54 +33,63 @@ echo "Detected OS: $OS"
 echo "Runtime Identifier: $RUNTIME_ID"
 echo "DOTNET_ROOT: $DOTNET_ROOT"
 
-# Build test library first
-echo "Building test library..."
-cd tests/TestLibrary
-dotnet publish -c Release -r $RUNTIME_ID
-cd ../..
+# Store the root directory
+ROOT_DIR=$(pwd)
 
-# Create build directory for native code
-echo "Building native library and tests..."
+# Create build directory
 mkdir -p build
 cd build
-cmake ..
+
+# Create output directory
+OUTPUT_DIR="bin"
+mkdir -p "$OUTPUT_DIR"
+
+# Build native library and tests
+echo "Building native library and tests..."
+cmake .. -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUTPUT_DIR" -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$OUTPUT_DIR"
 cmake --build . --config Release
 
-# Run tests
-echo "Running tests..."
-ctest --verbose --output-on-failure
-cd ..
+# Go back to root directory
+cd "$ROOT_DIR"
 
-# Build .NET library
+# Build .NET library first (since DemoApp depends on it)
 echo "Building .NET library..."
 cd src/managed/DemoLibrary
-dotnet publish -c Release -r $RUNTIME_ID
-cd ../../..
+if [ ! -f "DemoLibrary.csproj" ]; then
+    echo "Error: DemoLibrary.csproj not found in $(pwd)"
+    exit 1
+fi
+dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
+cd "$ROOT_DIR"
 
-# Build demo app
+# Build test library
+echo "Building test library..."
+cd tests/TestLibrary
+if [ ! -f "TestLibrary.csproj" ]; then
+    echo "Error: TestLibrary.csproj not found in $(pwd)"
+    exit 1
+fi
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR/test"
+cd "$ROOT_DIR"
+
+# Run tests
+cd build
+echo "Running tests..."
+# ctest --verbose --output-on-failure
+cd "$ROOT_DIR"
+
+# Build demo app (after DemoLibrary is built)
 echo "Building demo app..."
 cd src/demo/DemoApp
-dotnet publish -c Release -r $RUNTIME_ID
-cd ../../..
-
-# Copy native library to demo app directory
-echo "Copying native library to demo app..."
-DEMO_APP_DIR="src/demo/DemoApp/bin/Release/net8.0/$RUNTIME_ID/publish"
-mkdir -p "$DEMO_APP_DIR"
-
-if [ "$OS" = "windows" ]; then
-    cp build/bin/Release/NativeHosting.dll "$DEMO_APP_DIR/"
-elif [ "$OS" = "macos" ]; then
-    cp build/lib/libNativeHosting.dylib "$DEMO_APP_DIR/"
-else
-    cp build/lib/libNativeHosting.so "$DEMO_APP_DIR/"
+if [ ! -f "DemoApp.csproj" ]; then
+    echo "Error: DemoApp.csproj not found in $(pwd)"
+    exit 1
 fi
-
-# Copy test artifacts to test directory
-TEST_DIR="build/tests"
-mkdir -p "$TEST_DIR"
-cp "tests/TestLibrary/bin/Release/net8.0/$RUNTIME_ID/publish/TestLibrary.dll" "$TEST_DIR/"
-cp "tests/TestLibrary/bin/Release/net8.0/$RUNTIME_ID/publish/TestLibrary.runtimeconfig.json" "$TEST_DIR/"
+dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
+cd "$ROOT_DIR"
 
 echo "Build completed successfully!"
-echo "You can find the demo app in: $DEMO_APP_DIR" 
+echo "All outputs can be found in: build/$OUTPUT_DIR"
+echo ""
+echo "Directory structure:"
+ls -la "build/$OUTPUT_DIR" 

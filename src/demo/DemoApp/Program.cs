@@ -3,17 +3,17 @@ using DemoLibrary;
 
 class Program
 {
-    [DllImport("NativeHosting")]
+    [DllImport("libNativeHosting")]
     private static extern bool InitializeRuntime(string runtimeConfigPath);
 
-    [DllImport("NativeHosting")]
+    [DllImport("libNativeHosting")]
     private static extern IntPtr LoadAssemblyAndGetFunctionPointer(
         string assemblyPath,
         string typeName,
         string methodName,
         string delegateTypeName);
 
-    [DllImport("NativeHosting")]
+    [DllImport("libNativeHosting")]
     private static extern void CloseRuntime();
 
     // Define delegate types matching our Calculator methods
