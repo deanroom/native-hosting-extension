@@ -1,51 +1,110 @@
-# Stop on error
+# Exit on error
 $ErrorActionPreference = "Stop"
 
-# Set runtime identifier for Windows
-$RuntimeId = "win-x64"
-Write-Host "Runtime Identifier: $RuntimeId"
+# Remove existing build directory
+if (Test-Path build) {
+    Remove-Item -Recurse -Force build
+}
 
-Write-Host "Building test library..."
-# Build test library
-Push-Location tests/TestLibrary
-dotnet publish -c Release -r $RuntimeId
-Pop-Location
+# Detect OS and set runtime identifier
+$OS = switch ($PSVersionTable.Platform) {
+    "Unix" {
+        if ($IsMacOS) {
+            "macos"
+        } else {
+            "linux"
+        }
+    }
+    "Win32NT" { "windows" }
+    default { throw "Unsupported platform" }
+}
 
-Write-Host "Building native library and tests..."
-# Create build directory for native code
+$RUNTIME_ID = switch ($OS) {
+    "macos" { "osx-arm64" }
+    "linux" { "linux-x64" }
+    "windows" { "win-x64" }
+}
+
+$DOTNET_ROOT = switch ($OS) {
+    "macos" {
+        if (Test-Path "/opt/homebrew/share/dotnet") {
+            "/opt/homebrew/share/dotnet"
+        } else {
+            "/usr/local/share/dotnet"
+        }
+    }
+    "linux" { "/usr/share/dotnet" }
+    "windows" { "$env:ProgramFiles\dotnet" }
+}
+
+Write-Host "Detected OS: $OS"
+Write-Host "Runtime Identifier: $RUNTIME_ID"
+Write-Host "DOTNET_ROOT: $DOTNET_ROOT"
+
+# Store root directory
+$ROOT_DIR = Get-Location
+
+# Create build directory
 New-Item -ItemType Directory -Force -Path build | Out-Null
-Push-Location build
-cmake ..
+Set-Location build
+
+# Create output directory
+$OUTPUT_DIR = "bin"
+New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
+
+# Build native library and tests
+Write-Host "Building native library and tests..."
+cmake .. -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUTPUT_DIR" -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$OUTPUT_DIR"
 cmake --build . --config Release
 
-Write-Host "Running tests..."
+# Go back to root directory
+Set-Location $ROOT_DIR
+
+# Build test library
+Write-Host "Building test library..."
+Set-Location tests/TestLibrary
+if (-not (Test-Path "TestLibrary.csproj")) {
+    throw "Error: TestLibrary.csproj not found in $(Get-Location)"
+}
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/tests"
+Set-Location $ROOT_DIR
+
 # Run tests
+Set-Location build
+Write-Host "Running tests..."
 ctest --verbose --output-on-failure
-Pop-Location
+Set-Location $ROOT_DIR
 
-Write-Host "Building .NET library..."
-# Build .NET library
-Push-Location src/managed/DemoLibrary
-dotnet publish -c Release -r $RuntimeId
-Pop-Location
+# Build .NET libraries
+Write-Host "Building .NET libraries..."
 
-Write-Host "Building demo app..."
+# Build NativeAotPluginHost
+Set-Location src/NativeAotPluginHost
+if (-not (Test-Path "NativeAotPluginHost.csproj")) {
+    throw "Error: NativeAotPluginHost.csproj not found in $(Get-Location)"
+}
+dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
+Set-Location $ROOT_DIR
+
+# Build ManagedLibrary
+Set-Location src/ManagedLibrary
+if (-not (Test-Path "ManagedLibrary.csproj")) {
+    throw "Error: ManagedLibrary.csproj not found in $(Get-Location)"
+}
+dotnet publish -c Release -r $RUNTIME_ID -o "../../../build/$OUTPUT_DIR"
+Set-Location $ROOT_DIR
+
 # Build demo app
-Push-Location src/demo/DemoApp
-dotnet publish -c Release -r $RuntimeId
-Pop-Location
-
-Write-Host "Copying native library to demo app..."
-# Copy native library to demo app directory
-$DemoAppDir = "src/demo/DemoApp/bin/Release/net8.0/$RuntimeId/publish"
-New-Item -ItemType Directory -Force -Path $DemoAppDir | Out-Null
-Copy-Item "build/bin/Release/NativeHosting.dll" -Destination $DemoAppDir
-
-# Copy test artifacts to test directory
-$TestDir = "build/tests"
-New-Item -ItemType Directory -Force -Path $TestDir | Out-Null
-Copy-Item "tests/TestLibrary/bin/Release/net8.0/$RuntimeId/publish/TestLibrary.dll" -Destination $TestDir
-Copy-Item "tests/TestLibrary/bin/Release/net8.0/$RuntimeId/publish/TestLibrary.runtimeconfig.json" -Destination $TestDir
+Write-Host "Building demo app..."
+Set-Location src/DemoApp
+if (-not (Test-Path "DemoApp.csproj")) {
+    throw "Error: DemoApp.csproj not found in $(Get-Location)"
+}
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
+Set-Location $ROOT_DIR
 
 Write-Host "Build completed successfully!"
-Write-Host "You can find the demo app in: $DemoAppDir" 
+Write-Host "All outputs can be found in: build/$OUTPUT_DIR"
+Write-Host ""
+Write-Host "Directory structure:"
+Get-ChildItem "build/$OUTPUT_DIR" | Format-Table Name, Length, LastWriteTime 

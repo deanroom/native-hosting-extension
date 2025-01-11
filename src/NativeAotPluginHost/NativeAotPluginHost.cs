@@ -2,6 +2,11 @@ using System.Runtime.InteropServices;
 
 namespace DemoApp;
 
+
+/// <summary>
+/// 原生 AOT 插件宿主库,这是 native_aot_plugin_host 库的 .NET 包装器,
+/// 用于在 AOT 编译的 .NET 应用程序中动态加载和执行托管程序集中的方法。
+/// </summary>
 public partial class NativeAotPluginHost : IDisposable
 {
     private const string LibraryName = "NativeAotPluginHost";

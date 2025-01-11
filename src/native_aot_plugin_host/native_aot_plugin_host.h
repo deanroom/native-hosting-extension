@@ -1,5 +1,9 @@
 #pragma once
 
+/*
+这是对 .net 
+*/
+
 #ifdef _WIN32
 #ifdef NATIVE_AOT_PLUGIN_HOST_EXPORTS
 #define NATIVE_AOT_PLUGIN_HOST_API __declspec(dllexport)
