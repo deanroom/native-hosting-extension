@@ -1,15 +1,15 @@
 # Native AOT Plugin Host
 
-本项目演示如何为 AOT 编译的 .NET 应用程序创建原生插件扩展系统。它包含一个原生插件宿主库，可以在 AOT 编译的应用程序中动态加载和执行托管程序集中的方法。
+本项目演示如何为 AOT 编译的 .NET 应用程序创建基于托管程序集的插件扩展。它包含一个原生插件宿主库，可以在 AOT 编译的应用程序中动态加载和执行托管程序集中的方法。
 
 ## 项目结构
 
 ```
 src/
-├── native_aot_plugin_host/    # 原生插件宿主库（C++）
-├── managed/
-│   └── ManagedLibrary/       # 示例托管插件库
-└── DemoApp/                  # 演示应用程序
+├── native_aot_plugin_host/   # 原生插件宿主库（C++）
+│── NativeAotPluginHost/      # .NET 插件宿主包装库(在编译为 AOT 的 .NET应用程序中使用)
+│── ManagedLibrary/           # 示例托管插件库
+└── DemoApp/                  # 演示应用程序（AOT 编译）
 tests/                        # 单元测试
 ```
 
@@ -24,23 +24,8 @@ tests/                        # 单元测试
 
 ## 构建项目
 
-### 1. 构建原生库
-
 ```bash
-mkdir build
-cd build
-cmake ..
-cmake --build .
-```
-
-### 2. 构建 .NET 项目
-
-```bash
-cd src/managed/ManagedLibrary
-dotnet publish -c Release
-
-cd ../../DemoApp
-dotnet publish -c Release
+./build.sh
 ```
 
 ## 运行演示
@@ -49,7 +34,7 @@ dotnet publish -c Release
 2. 运行演示应用程序：
 
 ```bash
-cd src/DemoApp/bin/Release/net8.0/publish
+cd build/bin
 ./DemoApp
 ```
 
@@ -68,11 +53,12 @@ ctest --verbose
 - 通过函数指针调用方法
 - 错误处理和运行时管理
 - 安全的资源管理（IDisposable 实现）
+- 独立的 .NET 插件宿主包装库
 
 ## 使用示例
 
 ```csharp
-// 在托管库中定义方法
+// 在托管插件库中定义方法
 namespace ManagedLibrary;
 
 public static class Calculator
@@ -84,6 +70,8 @@ public static class Calculator
 }
 
 // 在 AOT 应用程序中使用
+using NativeAotPluginHost;
+
 using var pluginHost = new NativeAotPluginHost();
 pluginHost.Initialize("ManagedLibrary.runtimeconfig.json");
 
@@ -95,6 +83,22 @@ var add = pluginHost.GetFunction<AddDelegate>(
 int result = add(5, 3);  // 结果: 8
 ```
 
-## 许可证
+## 组件说明
 
-MIT 
+1. **native_aot_plugin_host**
+   - C++ 实现的原生插件宿主库
+   - 提供底层的程序集加载和函数调用功能
+   - 跨平台实现（Windows/Linux/macOS）
+
+2. **NativeAotPluginHost (.NET)**
+   - 原生库的 .NET 包装器
+   - 提供友好的 .NET API
+   - 实现 IDisposable 接口确保资源正确释放
+
+3. **ManagedLibrary**
+   - 示例托管插件库
+   - 展示如何编写可被动态加载的插件
+
+4. **DemoApp**
+   - AOT 编译的演示应用
+   - 展示如何在 AOT 环境中使用插件系统
