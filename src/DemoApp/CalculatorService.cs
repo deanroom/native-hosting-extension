@@ -1,27 +1,30 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using NativeAotPluginHost;
+using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
-
 namespace DemoApp;
 
 public class CalculatorService : BackgroundService
 {
-    private readonly ILogger<CalculatorService> _logger;
     private readonly PluginHost _pluginHost;
+    private readonly ILogger<CalculatorService> _logger;
     private AddDelegate? _add;
     private SubtractDelegate? _subtract;
     private Hello? _hello;
+    private SetLogger? _setLogger;
+    private GCHandle _loggerHandle;
+
 
     // Define delegate types
     private delegate int AddDelegate(int a, int b);
     private delegate int SubtractDelegate(int a, int b);
     private delegate void Hello();
-    public CalculatorService(ILogger<CalculatorService> logger, PluginHost pluginHost)
+    private delegate void SetLogger(IntPtr logger);
+    public CalculatorService(PluginHost pluginHost, ILogger<CalculatorService> logger)
     {
-        _logger = logger;
         _pluginHost = pluginHost;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,7 +36,7 @@ public class CalculatorService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while running the calculator demo");
+            Console.WriteLine($"An error occurred while running the calculator demo: {ex.Message}");
         }
     }
 
@@ -42,38 +45,47 @@ public class CalculatorService : BackgroundService
         string runtimeConfigPath = Path.Combine(AppContext.BaseDirectory, "ManagedLibrary.runtimeconfig.json");
         string assemblyPath = Path.Combine(AppContext.BaseDirectory, "ManagedLibrary.dll");
 
-        _logger.LogInformation("Loading assembly from: {AssemblyPath}", assemblyPath);
-        _logger.LogInformation("Using config from: {ConfigPath}", runtimeConfigPath);
+        Console.WriteLine($"Loading assembly from: {assemblyPath}");
+        Console.WriteLine($"Using config from: {runtimeConfigPath}");
 
-        _logger.LogInformation("Initializing runtime...");
+        Console.WriteLine("Initializing runtime...");
         _pluginHost.Initialize(runtimeConfigPath);
 
         // Load Add method
-        _logger.LogInformation("Loading Add method...");
+        Console.WriteLine("Loading Add method...");
         _add = _pluginHost.GetFunction<AddDelegate>(
             assemblyPath,
             "ManagedLibrary.Calculator, ManagedLibrary",
             "Add");
 
         // Load Subtract method
-        _logger.LogInformation("Loading Subtract method...");
+        Console.WriteLine("Loading Subtract method...");
         _subtract = _pluginHost.GetFunction<SubtractDelegate>(
             assemblyPath,
             "ManagedLibrary.Calculator, ManagedLibrary",
             "Subtract");
 
         // Load Hello method
-        _logger.LogInformation("Loading Hello method...");
+        Console.WriteLine("Loading Hello method...");
         _hello = _pluginHost.GetFunction<Hello>(
             assemblyPath,
             "ManagedLibrary.Calculator, ManagedLibrary",
             "Hello");
 
-        _logger.LogInformation("Calculator is ready. Available commands:");
-        _logger.LogInformation("- add(x,y)");
-        _logger.LogInformation("- sub(x,y)");
-        _logger.LogInformation("- hello");
-        _logger.LogInformation("Press Ctrl+C to exit");
+        // Load SetLogger method
+        Console.WriteLine("Loading SetLogger method...");
+        _setLogger = _pluginHost.GetFunction<SetLogger>(
+            assemblyPath,
+            "ManagedLibrary.Calculator, ManagedLibrary",
+            "SetLogger");
+        _loggerHandle = GCHandle.Alloc(_logger, GCHandleType.Normal);
+        _setLogger?.Invoke(GCHandle.ToIntPtr(_loggerHandle));
+
+        Console.WriteLine("Calculator is ready. Available commands:");
+        Console.WriteLine("- add(x,y)");
+        Console.WriteLine("- sub(x,y)");
+        Console.WriteLine("- hello");
+        Console.WriteLine("Press Ctrl+C to exit");
     }
 
     private async Task ProcessUserCommands(CancellationToken stoppingToken)
@@ -88,10 +100,10 @@ public class CalculatorService : BackgroundService
                 var command = CommandParser.ParseCommand(input);
                 if (command == null)
                 {
-                    _logger.LogWarning("Invalid command format. Available commands:");
-                    _logger.LogWarning("- add(x,y)");
-                    _logger.LogWarning("- subtract(x,y)");
-                    _logger.LogWarning("- hello");
+                    Console.WriteLine("Invalid command format. Available commands:");
+                    Console.WriteLine("- add(x,y)");
+                    Console.WriteLine("- subtract(x,y)");
+                    Console.WriteLine("- hello");
                     continue;
                 }
 
@@ -103,13 +115,13 @@ public class CalculatorService : BackgroundService
                         case "add" when a.HasValue && b.HasValue:
                             int addResult = _add?.Invoke(a.Value, b.Value) ??
                                 throw new InvalidOperationException("Add function not loaded");
-                            _logger.LogInformation("Result: {Result}", addResult);
+                            Console.WriteLine($"Result: {addResult}");
                             break;
 
                         case "sub" when a.HasValue && b.HasValue:
                             int subtractResult = _subtract?.Invoke(a.Value, b.Value) ??
                                 throw new InvalidOperationException("Subtract function not loaded");
-                            _logger.LogInformation("Result: {Result}", subtractResult);
+                            Console.WriteLine($"Result: {subtractResult}");
                             break;
 
                         case "hello":
@@ -124,7 +136,7 @@ public class CalculatorService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error executing command");
+                    Console.WriteLine($"Error executing command: {ex.Message}");
                 }
             }
             else
@@ -136,7 +148,7 @@ public class CalculatorService : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Stopping calculator demo service");
+        Console.WriteLine("Stopping calculator demo service");
         _pluginHost.Dispose();
         await base.StopAsync(cancellationToken);
     }

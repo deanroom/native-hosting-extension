@@ -25,7 +25,7 @@ partial class Program
 
 public class CommandParser
 {
-    private static readonly Regex CommandRegex = new(@"^(add|subtract)\((\d+),(\d+)\)$|^(hello)$", RegexOptions.IgnoreCase);
+    private static readonly Regex CommandRegex = new(@"^(add|sub)\((\d+),(\d+)\)$|^(hello)$", RegexOptions.IgnoreCase);
 
     public static (string Command, int? A, int? B)? ParseCommand(string input)
     {
