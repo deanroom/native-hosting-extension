@@ -21,8 +21,6 @@ partial class Program
     // Define delegate types matching our Calculator methods
     private delegate int AddDelegate(int a, int b);
     private delegate int SubtractDelegate(int a, int b);
-    private delegate int MultiplyDelegate(int a, int b);
-    private delegate int DivideDelegate(int a, int b);
 
     static void Main(string[] args)
     {
@@ -45,7 +43,7 @@ partial class Program
             Console.WriteLine("Loading Add method...");
             var addPtr = LoadAssemblyAndGetFunctionPointer(
                 assemblyPath,
-                "DemoLibrary.Calculator",
+                "DemoLibrary.Calculator, DemoLibrary",
                 "Add",
                 typeof(AddDelegate).ToString());
 
@@ -67,7 +65,7 @@ partial class Program
             Console.WriteLine("\nLoading Subtract method...");
             var subtractPtr = LoadAssemblyAndGetFunctionPointer(
                 assemblyPath,
-                "DemoLibrary.Calculator",
+                "DemoLibrary.Calculator, DemoLibrary",
                 "Subtract",
                 typeof(SubtractDelegate).ToString());
 
