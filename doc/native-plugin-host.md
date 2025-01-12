@@ -517,20 +517,39 @@ catch (Exception ex)
 
 ### 插件开发指南
 
-1. **插件结构**
-```csharp
-public class MyPlugin
-{
-    // 使用 UnmanagedCallersOnly 特性标记导出方法
-    [UnmanagedCallersOnly]
-    public static int Calculate(int a, int b)
-    {
-        return a + b;
-    }
-}
+1. 创建新的 .NET 类库项目
+   
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+</Project>
 ```
 
-2. **参数类型限制**
+- **项目配置说明**：
+
+  - `TargetFramework`: 指定目标框架版本。
+  - `GenerateRuntimeConfigurationFiles`: 生成 `.runtimeconfig.json` 文件，该文件包含运行时配置信息，是插件加载所必需的。
+  - `EnableDynamicLoading`: 启用动态加载支持，允许程序集在运行时被动态加载。这会将程序集编译为可重定位的形式，便于插件系统加载。
+
+
+- **实现插件类**：
+
+   ```csharp
+   public class Calculator
+   {
+      [UnmanagedCallersOnly]
+      public static int Add(int a, int b)
+      {
+         return a + b;
+      }
+   }
+   ```
+
+- **参数类型限制**
    - 使用 `UnmanagedCallersOnly` 特性的方法必须遵循以下规则:
      - 必须是 `static` 方法
      - 返回类型必须是 `void` 或 blittable 类型
@@ -565,28 +584,6 @@ public class MyPlugin
    [UnmanagedCallersOnly]
    public static void Update(ref int value) => value++;
    ```
-
-
-3. **配置文件**
-```json
-{
-  "runtimeOptions": {
-    "tfm": "net7.0",
-    "framework": {
-      "name": "Microsoft.NETCore.App",
-      "version": "8.0.0"
-    }
-  }
-}
-```
-
-4. **编译设置**
-```xml
-<PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <PublishAot>true</PublishAot>
-</PropertyGroup>
-```
 
 ## 总结
 
