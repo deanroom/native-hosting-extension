@@ -18,13 +18,26 @@ target_include_directories(native_plugin_host PRIVATE
 )
 
 # Link libraries
-target_link_libraries(native_plugin_host PRIVATE
-    ${DOTNET_LIBRARY_PATH}/libnethost${CMAKE_STATIC_LIBRARY_SUFFIX}
-)
-
-target_link_libraries(native_plugin_host PRIVATE
-    ${DOTNET_LIBRARY_PATH}/libnethost${CMAKE_SHARED_LIBRARY_SUFFIX}
-)
+MESSAGE(STATUS "DOTNET_LIBRARY_PATH, static: ${DOTNET_LIBRARY_PATH}")
+if(WIN32)
+    target_link_libraries(native_plugin_host PRIVATE
+        ${DOTNET_LIBRARY_PATH}/libnethost${CMAKE_STATIC_LIBRARY_SUFFIX}
+    )
+else()
+    target_link_libraries(native_plugin_host PRIVATE
+        ${DOTNET_LIBRARY_PATH}/libnethost${CMAKE_STATIC_LIBRARY_SUFFIX}
+    )
+endif()
+message(STATUS "DOTNET_LIBRARY_PATH, shared : ${DOTNET_LIBRARY_PATH}")
+if(WIN32)
+    target_link_libraries(native_plugin_host PRIVATE
+        ${DOTNET_LIBRARY_PATH}/nethost${CMAKE_SHARED_LIBRARY_SUFFIX}
+    )
+else()
+    target_link_libraries(native_plugin_host PRIVATE
+        ${DOTNET_LIBRARY_PATH}/libnethost${CMAKE_SHARED_LIBRARY_SUFFIX}
+    )
+endif()
 
 # Set output directory
 set_target_properties(native_plugin_host PROPERTIES

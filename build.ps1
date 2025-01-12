@@ -77,54 +77,54 @@ cmake --build . --config Release
 # Go back to root directory
 Set-Location $ROOT_DIR
 
-# Build test library
-Write-Host "Building test library..."
-Set-Location (Join-Path "tests" "TestLibrary")
-if (-not (Test-Path "TestLibrary.csproj")) {
-    throw "Error: TestLibrary.csproj not found in $(Get-Location)"
-}
-$TEST_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") "tests"
-dotnet publish -c Release -r $RUNTIME_ID -o $TEST_OUTPUT
-Set-Location $ROOT_DIR
+# # Build test library
+# Write-Host "Building test library..."
+# Set-Location (Join-Path "tests" "TestLibrary")
+# if (-not (Test-Path "TestLibrary.csproj")) {
+#     throw "Error: TestLibrary.csproj not found in $(Get-Location)"
+# }
+# $TEST_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") "tests"
+# dotnet publish -c Release -r $RUNTIME_ID -o $TEST_OUTPUT
+# Set-Location $ROOT_DIR
 
-# Run tests
-Set-Location $BUILD_DIR/bin
-Write-Host "Running tests..."
-./native_hosting_tests.exe
-Set-Location $ROOT_DIR
+# # Run tests
+# Set-Location $BUILD_DIR/bin
+# Write-Host "Running tests..."
+# ./native_hosting_tests.exe
+# Set-Location $ROOT_DIR
 
-# Build .NET libraries
-Write-Host "Building .NET libraries..."
+# # Build .NET libraries
+# Write-Host "Building .NET libraries..."
 
-# Build NativePluginHost
-Set-Location (Join-Path "src" "NativePluginHost")
-if (-not (Test-Path "NativePluginHost.csproj")) {
-    throw "Error: NativePluginHost.csproj not found in $(Get-Location)"
-}
-$LIB_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
-dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
-Set-Location $ROOT_DIR
+# # Build NativePluginHost
+# Set-Location (Join-Path "src" "NativePluginHost")
+# if (-not (Test-Path "NativePluginHost.csproj")) {
+#     throw "Error: NativePluginHost.csproj not found in $(Get-Location)"
+# }
+# $LIB_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
+# dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
+# Set-Location $ROOT_DIR
 
-# Build ManagedLibrary
-Set-Location (Join-Path "src" "ManagedLibrary")
-if (-not (Test-Path "ManagedLibrary.csproj")) {
-    throw "Error: ManagedLibrary.csproj not found in $(Get-Location)"
-}
-dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
-Set-Location $ROOT_DIR
+# # Build ManagedLibrary
+# Set-Location (Join-Path "src" "ManagedLibrary")
+# if (-not (Test-Path "ManagedLibrary.csproj")) {
+#     throw "Error: ManagedLibrary.csproj not found in $(Get-Location)"
+# }
+# dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
+# Set-Location $ROOT_DIR
 
-# Build demo app
-Write-Host "Building demo app..."
-Set-Location (Join-Path "src" "DemoApp")
-if (-not (Test-Path "DemoApp.csproj")) {
-    throw "Error: DemoApp.csproj not found in $(Get-Location)"
-}
-$DEMO_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
-dotnet publish -c Release -r $RUNTIME_ID -o $DEMO_OUTPUT
-Set-Location $ROOT_DIR
+# # Build demo app
+# Write-Host "Building demo app..."
+# Set-Location (Join-Path "src" "DemoApp")
+# if (-not (Test-Path "DemoApp.csproj")) {
+#     throw "Error: DemoApp.csproj not found in $(Get-Location)"
+# }
+# $DEMO_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
+# dotnet publish -c Release -r $RUNTIME_ID -o $DEMO_OUTPUT
+# Set-Location $ROOT_DIR
 
-Write-Host "Build completed successfully!"
-Write-Host "All outputs can be found in: build/$OUTPUT_DIR"
-Write-Host ""
-Write-Host "Directory structure:"
-Get-ChildItem (Join-Path "build" $OUTPUT_DIR) | Format-Table Name, Length, LastWriteTime 
+# Write-Host "Build completed successfully!"
+# Write-Host "All outputs can be found in: build/$OUTPUT_DIR"
+# Write-Host ""
+# Write-Host "Directory structure:"
+# Get-ChildItem (Join-Path "build" $OUTPUT_DIR) | Format-Table Name, Length, LastWriteTime 

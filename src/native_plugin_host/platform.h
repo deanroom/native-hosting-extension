@@ -59,11 +59,12 @@ inline std::basic_string<char_t> to_char_t(const char* str) {
  * @param path Path to the library
  * @return Handle to the loaded library or nullptr on failure
  */
-inline LibraryHandle load_library(const char* path) {
+inline LibraryHandle load_library(const char_t* path) {
 #ifdef PLATFORM_WINDOWS
-    return LoadLibraryW(to_char_t(path).c_str());
+    return LoadLibraryW(path);
 #else
-    return dlopen(path, RTLD_LAZY);
+    std::string narrow_path(path);
+    return dlopen(narrow_path.c_str(), RTLD_LAZY);
 #endif
 }
 

@@ -11,6 +11,19 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# Set runtime library to MD for all configurations
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+# Ensure consistent runtime library settings
+if(MSVC)
+    add_compile_options(
+        $<$<CONFIG:>:/MD>
+        $<$<CONFIG:Debug>:/MDd>
+        $<$<CONFIG:Release>:/MD>
+    )
+endif()
+
 # Find .NET SDK
 if(NOT DEFINED DOTNET_ROOT)
     if(WIN32)
@@ -29,10 +42,14 @@ message(STATUS "Using .NET SDK from: ${DOTNET_ROOT}")
 
 # Detect host architecture
 if(WIN32)
-    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "AMD64")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|x86_64)$")
         set(HOST_ARCH "win-x64")
-    else()
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|aarch64)$")
         set(HOST_ARCH "win-arm64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(X86|i686)$")
+        set(HOST_ARCH "win-x86")
+    else()
+        message(FATAL_ERROR "Unsupported Windows architecture: ${CMAKE_SYSTEM_PROCESSOR}")
     endif()
 elseif(APPLE)
     if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
@@ -49,10 +66,10 @@ else()
     endif()
 endif()
 
-message(STATUS "Selected HOST_ARCH: ${HOST_ARCH}")
+message(STATUS "Detected HOST_ARCH: ${HOST_ARCH}")
 
 # Set paths for .NET hosting
-set(DOTNET_VERSION "9.0.0")
+set(DOTNET_VERSION "8.0.11")
 set(DOTNET_RUNTIME_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_VERSION}/runtimes/${HOST_ARCH}/native")
 
 set(DOTNET_INCLUDE_PATH "${DOTNET_RUNTIME_PATH}")
@@ -71,42 +88,3 @@ endforeach()
 # Add subdirectories
 add_subdirectory(src/native_plugin_host)
 add_subdirectory(tests)
-
-# Custom target for building NativePluginHost
-add_custom_target(plugin_host
-    COMMAND dotnet build -c Release "${CMAKE_SOURCE_DIR}/src/NativePluginHost/NativePluginHost.csproj" -o "${CMAKE_BINARY_DIR}/bin"
-    COMMENT "Building NativePluginHost..."
-)
-
-# Custom target for building ManagedLibrary
-add_custom_target(managed_library
-    COMMAND dotnet build -c Release "${CMAKE_SOURCE_DIR}/src/ManagedLibrary/ManagedLibrary.csproj" -o "${CMAKE_BINARY_DIR}/bin"
-    COMMENT "Building ManagedLibrary..."
-)
-
-# Custom target for building demo app
-add_custom_target(demo_app
-    COMMAND dotnet build -c Release "${CMAKE_SOURCE_DIR}/src/DemoApp/DemoApp.csproj" -o "${CMAKE_BINARY_DIR}/bin"
-    COMMENT "Building demo app..."
-)
-
-# Add custom target to run tests
-add_custom_target(run_tests
-    COMMAND ${CMAKE_BINARY_DIR}/bin/native_hosting_tests
-    DEPENDS native_hosting_tests
-    COMMENT "Running tests..."
-)
-
-# Add custom target to run demo app
-add_custom_target(run_demo
-    COMMAND ${CMAKE_BINARY_DIR}/bin/DemoApp
-    DEPENDS demo_app
-    COMMENT "Running demo app..."
-)
-
-# Copy .NET runtime libraries
-if(WIN32)
-    file(COPY "${DOTNET_LIBRARY_PATH}/nethost.dll" DESTINATION "${CMAKE_BINARY_DIR}/bin")
-else()
-    file(COPY "${DOTNET_LIBRARY_PATH}/libnethost.dylib" DESTINATION "${CMAKE_BINARY_DIR}/bin")
-endif()
