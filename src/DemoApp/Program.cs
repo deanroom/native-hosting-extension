@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using NativeAotPluginHost;
+using NativePluginHost;
 
 namespace DemoApp;
 

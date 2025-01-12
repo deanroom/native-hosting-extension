@@ -26,7 +26,7 @@ set_target_properties(native_hosting_tests PROPERTIES
 target_link_libraries(native_hosting_tests
     PRIVATE
     GTest::gtest_main
-    native_aot_plugin_host
+    native_plugin_host
 )
 
 if(APPLE)
@@ -36,7 +36,7 @@ endif()
 # Include directories
 target_include_directories(native_hosting_tests
     PRIVATE
-    ${CMAKE_SOURCE_DIR}/src/native_aot_plugin_host
+    ${CMAKE_SOURCE_DIR}/src/native_plugin_host
     ${DOTNET_HOSTING_INCLUDE_PATH}
 )
 

@@ -9,6 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\NativeAotPluginHost\NativeAotPluginHost.csproj" />
+    <ProjectReference Include="..\NativePluginHost\NativePluginHost.csproj" />
   </ItemGroup>
 </Project> 

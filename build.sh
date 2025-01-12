@@ -91,6 +91,12 @@ fi
 dotnet publish -c Debug -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
 cd "$ROOT_DIR"
 
+# Run demo app
+echo "Running demo app..."
+cd build/bin
+./DemoApp
+cd "$ROOT_DIR"
+
 echo "Build completed successfully!"
 echo "All outputs can be found in: build/$OUTPUT_DIR"
 echo ""
