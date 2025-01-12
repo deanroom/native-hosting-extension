@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-# rm -rf build
+rm -rf build
 
 # Detect OS
 OS="unknown"
@@ -54,7 +54,6 @@ cmake --build . --config Release
 # Go back to root directory
 cd "$ROOT_DIR"
 
-
 # Build test library
 echo "Building test library..."
 cd tests/TestLibrary
@@ -66,9 +65,9 @@ dotnet publish -c Release -r $RUNTIME_ID -o "../../build/tests"
 cd "$ROOT_DIR"
 
 # Run tests
-cd build
+cd build/bin
 echo "Running tests..."
-ctest --verbose --output-on-failure
+./native_hosting_tests
 cd "$ROOT_DIR"
 
 # Build .NET library first (since DemoApp depends on it)

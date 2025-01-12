@@ -9,7 +9,7 @@ using SetLoggerFactoryDelegate = void(*)(void*);
 class NativeHostingTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Get the current test directory
+        // Get the current test directory 
         auto currentPath = std::filesystem::current_path();
         testLibPath = (currentPath / "TestLibrary.dll").string();
         configPath = (currentPath / "TestLibrary.runtimeconfig.json").string();

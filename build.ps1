@@ -90,7 +90,7 @@ Set-Location $ROOT_DIR
 # Run tests
 Set-Location $BUILD_DIR
 Write-Host "Running tests..."
-ctest --verbose --output-on-failure
+./native_hosting_tests.exe
 Set-Location $ROOT_DIR
 
 # Build .NET libraries
