@@ -88,7 +88,7 @@ dotnet publish -c Release -r $RUNTIME_ID -o $TEST_OUTPUT
 Set-Location $ROOT_DIR
 
 # Run tests
-Set-Location $BUILD_DIR
+Set-Location $BUILD_DIR/bin
 Write-Host "Running tests..."
 ./native_hosting_tests.exe
 Set-Location $ROOT_DIR
