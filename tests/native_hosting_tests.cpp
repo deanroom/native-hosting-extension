@@ -3,18 +3,14 @@
 #include <filesystem>
 #include <string>
 
-// Function type for setting logger factory
-using SetLoggerFactoryDelegate = void(*)(void*);
-
 class NativeHostingTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Get the current test directory 
         auto currentPath = std::filesystem::current_path();
         testLibPath = (currentPath / "TestLibrary.dll").string();
         configPath = (currentPath / "TestLibrary.runtimeconfig.json").string();
+        typeName = "TestLibrary.TestClass,TestLibrary";
         
-        // Initialize runtime
         ASSERT_TRUE(initialize_runtime(configPath.c_str())) << "Failed to initialize runtime";
     }
 
@@ -22,8 +18,21 @@ protected:
         close_runtime();
     }
 
+    template<typename T>
+    T GetFunction(const char* methodName, const char* delegateType) {
+        void* fnPtr = load_assembly_and_get_function_pointer(
+            testLibPath.c_str(),
+            typeName.c_str(),
+            methodName,
+            delegateType
+        );
+        EXPECT_NE(fnPtr, nullptr);
+        return reinterpret_cast<T>(fnPtr);
+    }
+
     std::string testLibPath;
     std::string configPath;
+    std::string typeName;
 };
 
 // Test initialization and cleanup
@@ -37,32 +46,20 @@ TEST_F(NativeHostingTest, InitializeAndCleanup) {
 // Test loading a method that returns a constant
 TEST_F(NativeHostingTest, ReturnConstant) {
     using ReturnConstantDelegate = int(*)();
-    
-    void* fnPtr = load_assembly_and_get_function_pointer(
-        testLibPath.c_str(),
-        "TestLibrary.TestClass,TestLibrary",
+    auto fn = GetFunction<ReturnConstantDelegate>(
         "ReturnConstant",
         "TestLibrary.ReturnConstantDelegate"
     );
-    
-    ASSERT_NE(fnPtr, nullptr);
-    auto fn = reinterpret_cast<ReturnConstantDelegate>(fnPtr);
     EXPECT_EQ(fn(), 42);
 }
 
 // Test loading a method with parameters
 TEST_F(NativeHostingTest, AddNumbers) {
     using AddNumbersDelegate = int(*)(int, int);
-    
-    void* fnPtr = load_assembly_and_get_function_pointer(
-        testLibPath.c_str(),
-        "TestLibrary.TestClass,TestLibrary",
+    auto fn = GetFunction<AddNumbersDelegate>(
         "AddNumbers",
         "TestLibrary.AddNumbersDelegate"
     );
-    
-    ASSERT_NE(fnPtr, nullptr);
-    auto fn = reinterpret_cast<AddNumbersDelegate>(fnPtr);
     EXPECT_EQ(fn(5, 3), 8);
     EXPECT_EQ(fn(-1, 1), 0);
 }
@@ -71,11 +68,10 @@ TEST_F(NativeHostingTest, AddNumbers) {
 TEST_F(NativeHostingTest, InvalidAssemblyPath) {
     void* fnPtr = load_assembly_and_get_function_pointer(
         "NonExistentAssembly.dll",
-        "TestLibrary.TestClass,TestLibrary",
+        typeName.c_str(),
         "ReturnConstant",
         "TestLibrary.ReturnConstantDelegate"
     );
-    
     EXPECT_EQ(fnPtr, nullptr);
 }
 
@@ -87,7 +83,6 @@ TEST_F(NativeHostingTest, InvalidTypeName) {
         "ReturnConstant",
         "TestLibrary.ReturnConstantDelegate"
     );
-    
     EXPECT_EQ(fnPtr, nullptr);
 }
 
@@ -95,29 +90,21 @@ TEST_F(NativeHostingTest, InvalidTypeName) {
 TEST_F(NativeHostingTest, InvalidMethodName) {
     void* fnPtr = load_assembly_and_get_function_pointer(
         testLibPath.c_str(),
-        "TestLibrary.TestClass,TestLibrary",
+        typeName.c_str(),
         "NonExistentMethod",
         "TestLibrary.ReturnConstantDelegate"
     );
-    
     EXPECT_EQ(fnPtr, nullptr);
 }
 
 // Test multiple method calls
 TEST_F(NativeHostingTest, MultipleMethodCalls) {
     using AddNumbersDelegate = int(*)(int, int);
-    
-    void* fnPtr = load_assembly_and_get_function_pointer(
-        testLibPath.c_str(),
-        "TestLibrary.TestClass,TestLibrary",
+    auto fn = GetFunction<AddNumbersDelegate>(
         "AddNumbers",
         "TestLibrary.AddNumbersDelegate"
     );
     
-    ASSERT_NE(fnPtr, nullptr);
-    auto fn = reinterpret_cast<AddNumbersDelegate>(fnPtr);
-    
-    // Call the method multiple times
     for (int i = 0; i < 100; i++) {
         EXPECT_EQ(fn(i, i), i * 2);
     }
