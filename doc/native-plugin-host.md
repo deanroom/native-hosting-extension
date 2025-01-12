@@ -255,7 +255,7 @@ class NativeHost {
     // 插件管理方法
     NativePlugin* get_plugin(native_plugin_handle_t handle);
     native_plugin_handle_t add_plugin(std::unique_ptr<NativePlugin> plugin);
-    bool removePlugin(native_plugin_handle_t handle);
+    bool remove_plugin(native_plugin_handle_t handle);
 };
 ```
 
