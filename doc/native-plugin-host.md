@@ -233,7 +233,7 @@ graph TB
     style F fill:#f99,stroke:#333
 ```
 
-### NativeHost 详解
+### NativeHost
 
 `NativeHost` 类是整个插件系统的核心管理器，它与前文提到的 .NET hosting 组件的关系如下：
 
@@ -259,7 +259,7 @@ class NativeHost {
 };
 ```
 
-### NativePlugin 详解
+### NativePlugin
 
 `NativePlugin` 类代表单个 .NET 运行时实例，它负责：
 
@@ -315,203 +315,12 @@ typedef enum {
 
 `PluginHost` 类是 Native Plugin Host 的托管侧包装器，它提供了与原生 API 对应的托管方法：
 
-1. **核心功能**
-```csharp
-public class PluginHost : IDisposable
-{
-    private IntPtr _handle;
-    private IntPtr _pluginHandle;
-
-    public PluginHost()
-    {
-        var result = NativeMethods.CreateHost(out _handle);
-        if (result < 0)
-        {
-            ThrowForError(result, "Failed to create host instance");
-        }
-    }
-
-    /// <summary>
-    /// 加载插件
-    /// </summary>
-    /// <param name="runtimeConfigPath">运行时配置文件路径</param>
-    /// <exception cref="ArgumentException">配置文件路径无效</exception>
-    /// <exception cref="InvalidOperationException">运行时已初始化或其他运行时错误</exception>
-    /// <exception cref="DllNotFoundException">找不到 hostfxr 库</exception>
-    /// <exception cref="TypeInitializationException">运行时初始化失败</exception>
-    public void LoadPlugin(string runtimeConfigPath)
-    {
-        if (string.IsNullOrEmpty(runtimeConfigPath))
-        {
-            throw new ArgumentException("Runtime config path cannot be null or empty", nameof(runtimeConfigPath));
-        }
-
-        var result = NativeMethods.LoadPlugin(_handle, runtimeConfigPath, out _pluginHandle);
-        if (result < 0)
-        {
-            ThrowForError(result, runtimeConfigPath);
-        }
-    }
-
-    /// <summary>
-    /// 卸载插件
-    /// </summary>
-    public void UnloadPlugin()
-    {
-        if (_pluginHandle != IntPtr.Zero)
-        {
-            var result = NativeMethods.UnloadPlugin(_handle, _pluginHandle);
-            if (result < 0)
-            {
-                ThrowForError(result, "Failed to unload plugin");
-            }
-            _pluginHandle = IntPtr.Zero;
-        }
-    }
-
-    /// <summary>
-    /// 获取函数委托
-    /// </summary>
-    /// <typeparam name="T">委托类型</typeparam>
-    /// <param name="assemblyPath">程序集路径</param>
-    /// <param name="typeName">类型名称</param>
-    /// <param name="methodName">方法名称</param>
-    /// <returns>函数委托</returns>
-    public T GetFunction<T>(string assemblyPath, string typeName, string methodName) where T : Delegate
-    {
-        if (_pluginHandle == IntPtr.Zero)
-        {
-            throw new InvalidOperationException("Plugin is not loaded");
-        }
-
-        if (string.IsNullOrEmpty(assemblyPath))
-            throw new ArgumentException("Assembly path cannot be null or empty", nameof(assemblyPath));
-        if (string.IsNullOrEmpty(typeName))
-            throw new ArgumentException("Type name cannot be null or empty", nameof(typeName));
-        if (string.IsNullOrEmpty(methodName))
-            throw new ArgumentException("Method name cannot be null or empty", nameof(methodName));
-
-        var result = NativeMethods.GetFunctionPointer(
-            _handle,
-            _pluginHandle,
-            assemblyPath,
-            typeName,
-            methodName,
-            typeof(T).ToString(),
-            out var functionPtr);
-
-        if (result < 0)
-        {
-            ThrowForError(result, $"{assemblyPath}:{typeName}.{methodName}");
-        }
-
-        return Marshal.GetDelegateForFunctionPointer<T>(functionPtr);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!_isDisposed)
-        {
-            if (disposing)
-            {
-                UnloadPlugin();
-            }
-
-            if (_handle != IntPtr.Zero)
-            {
-                NativeMethods.DestroyHost(_handle);
-                _handle = IntPtr.Zero;
-            }
-
-            _isDisposed = true;
-        }
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-}
-```
-
-2. **使用示例**
-```csharp
-// 创建宿主实例
-using var host = new PluginHost();
-
-// 加载插件
-host.LoadPlugin("MyPlugin.runtimeconfig.json");
-
-// 获取并调用托管方法
-var calculate = host.GetFunction<Func<int, int, int>>(
-    "MyPlugin.dll",
-    "MyPlugin.Calculator",
-    "Add"
-);
-int result = calculate(10, 20);
-
-// 卸载插件
-host.UnloadPlugin();
-```
-
-3. **错误处理**
-```csharp
-private static void ThrowForError(int errorCode, string context)
-{
-    switch (errorCode)
-    {
-        case NativeMethods.ErrorHostNotFound:
-            throw new InvalidOperationException($"Host not found: {context}");
-        case NativeMethods.ErrorPluginNotFound:
-            throw new InvalidOperationException($"Plugin not found: {context}");
-        case NativeMethods.ErrorPluginNotInitialized:
-            throw new InvalidOperationException($"Plugin not initialized: {context}");
-        case NativeMethods.ErrorRuntimeInit:
-            throw new TypeInitializationException($"Runtime initialization failed: {context}", null);
-        case NativeMethods.ErrorHostfxrNotFound:
-            throw new DllNotFoundException($"hostfxr not found: {context}");
-        case NativeMethods.ErrorAssemblyLoad:
-            throw new BadImageFormatException($"Failed to load assembly: {context}");
-        case NativeMethods.ErrorTypeLoad:
-            throw new TypeLoadException($"Failed to load type: {context}");
-        case NativeMethods.ErrorMethodLoad:
-            throw new MissingMethodException($"Failed to load method: {context}");
-        case NativeMethods.ErrorInvalidArg:
-            throw new ArgumentException($"Invalid argument: {context}");
-        default:
-            throw new InvalidOperationException($"Unknown error {errorCode}: {context}");
-    }
-}
-```
-
-这种设计有以下优点：
-
-1. **对称性**
-   - 托管侧 API 与原生侧保持一致
-   - 方法命名和行为统一
-   - 错误处理机制对应
-
-2. **资源管理**
-   - 实现 `IDisposable` 接口
-   - 自动清理原生资源
-   - 支持 using 语句
-
-3. **类型安全**
-   - 使用泛型方法获取函数委托
-   - 强类型的错误处理
-   - 参数验证
-
-4. **易用性**
-   - 简单直观的 API 设计
-   - 清晰的生命周期管理
-   - 详细的异常信息
 
 ## PluginHost 使用指南
 
 ### 基本概念
 
-`PluginHost` 是 Native Plugin Host 的托管侧包装器，它提供了一个简单直观的 API 来管理多个 .NET 插件。每个插件都有自己独立的运行时配置和生命周期。
+`PluginHost` 是 Native Plugin Host 的托管侧包装器，它提供了一个简单直观的 API 来管理多个 .NET 插件。每个插件都有自己独立的运行时配置和生命周期。`Plugin` 类封装了单个插件实例的状态和行为，包括委托缓存和资源管理。
 
 ### 插件生命周期
 
@@ -526,9 +335,9 @@ using var pluginHost = new PluginHost();
 // 准备插件配置路径
 var runtimeConfigPath = Path.Combine(baseDir, "MyPlugin.runtimeconfig.json");
 
-// 加载插件并获取句柄
-var pluginHandle = pluginHost.LoadPlugin(runtimeConfigPath);
-Console.WriteLine($"Loaded plugin: {pluginHandle}");
+// 加载插件并获取插件实例
+using var plugin = pluginHost.LoadPlugin(runtimeConfigPath);
+Console.WriteLine($"Loaded plugin: {plugin.Handle}");
 ```
 
 3. **获取函数**
@@ -536,9 +345,8 @@ Console.WriteLine($"Loaded plugin: {pluginHandle}");
 // 定义委托类型
 delegate int CalculationDelegate(int a, int b);
 
-// 获取函数委托
-var add = pluginHost.GetFunction<CalculationDelegate>(
-    pluginHandle,          // 插件句柄
+// 获取函数委托（会自动缓存）
+var add = plugin.GetFunction<CalculationDelegate>(
     "MyPlugin.dll",        // 程序集路径
     "MyPlugin.Calculator", // 类型名称
     "Add"                  // 方法名称
@@ -548,10 +356,11 @@ var add = pluginHost.GetFunction<CalculationDelegate>(
 int result = add(10, 20);
 ```
 
-4. **卸载插件**
+4. **清理资源**
 ```csharp
-// 当不再需要插件时，可以卸载它
-pluginHost.UnloadPlugin(pluginHandle);
+// 使用 using 语句自动释放插件资源
+// 或者显式调用 Dispose
+plugin.Dispose();
 ```
 
 ### 多插件管理示例
@@ -564,24 +373,30 @@ try
     var baseDir = AppContext.BaseDirectory;
     
     // 加载计算器插件
-    var calculatorConfig = Path.Combine(baseDir, "Calculator.runtimeconfig.json");
-    var calculatorPlugin = pluginHost.LoadPlugin(calculatorConfig);
+    var calculatorConfigPath = Path.Combine(baseDir, "Calculator.runtimeconfig.json");
+    var calculatorAssemblyPath = Path.Combine(baseDir, "Calculator.dll");
+    var calculatorTypeName = "Calculator.Math, Calculator";
     
-    var add = pluginHost.GetFunction<Func<int, int, int>>(
-        calculatorPlugin,
-        "Calculator.dll",
-        "Calculator.Math",
+    using var calculator = pluginHost.LoadPlugin(calculatorConfigPath);
+    
+    // 获取计算器函数
+    var add = calculator.GetFunction<Func<int, int, int>>(
+        calculatorAssemblyPath,
+        calculatorTypeName,
         "Add"
     );
     
     // 加载日志插件
-    var loggerConfig = Path.Combine(baseDir, "Logger.runtimeconfig.json");
-    var loggerPlugin = pluginHost.LoadPlugin(loggerConfig);
+    var loggerConfigPath = Path.Combine(baseDir, "Logger.runtimeconfig.json");
+    var loggerAssemblyPath = Path.Combine(baseDir, "Logger.dll");
+    var loggerTypeName = "Logger.FileLogger, Logger";
     
-    var log = pluginHost.GetFunction<Action<string>>(
-        loggerPlugin,
-        "Logger.dll",
-        "Logger.FileLogger",
+    using var logger = pluginHost.LoadPlugin(loggerConfigPath);
+    
+    // 获取日志函数
+    var log = logger.GetFunction<Action<string>>(
+        loggerAssemblyPath,
+        loggerTypeName,
         "Log"
     );
     
@@ -589,26 +404,54 @@ try
     int sum = add(5, 3);
     log($"计算结果: {sum}");
     
-    // 清理资源
-    pluginHost.UnloadPlugin(calculatorPlugin);
-    pluginHost.UnloadPlugin(loggerPlugin);
+    // 使用 using 语句自动清理资源
 }
 catch (Exception ex)
 {
     Console.WriteLine($"Error: {ex.Message}");
+    if (ex.InnerException != null)
+    {
+        Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
+    }
 }
+```
+
+### Plugin 类功能
+
+1. **委托缓存**
+```csharp
+// 首次调用时获取并缓存委托
+var add = plugin.GetFunction<CalculationDelegate>(assemblyPath, typeName, "Add");
+
+// 再次调用时直接从缓存返回
+var cachedAdd = plugin.GetFunction<CalculationDelegate>(assemblyPath, typeName, "Add");
+```
+
+2. **缓存管理**
+```csharp
+// 清除委托缓存
+plugin.ClearCache();
+```
+
+3. **状态检查**
+```csharp
+// 获取插件句柄
+IntPtr handle = plugin.Handle;
+
+// 获取运行时配置路径
+string configPath = plugin.RuntimeConfigPath;
 ```
 
 ### 错误处理
 
-`PluginHost` 提供了详细的错误处理机制，会抛出以下异常：
+`PluginHost` 和 `Plugin` 提供了详细的错误处理机制：
 
 1. **参数验证**
    - `ArgumentException`: 无效的参数（如空路径）
    - `ArgumentNullException`: 必需参数为 null
 
 2. **插件操作**
-   - `InvalidOperationException`: 插件未找到或未初始化
+   - `InvalidOperationException`: 插件未找到或已释放
    - `DllNotFoundException`: 找不到 hostfxr 库
    - `TypeInitializationException`: 运行时初始化失败
 
@@ -617,12 +460,16 @@ catch (Exception ex)
    - `TypeLoadException`: 类型加载失败
    - `MissingMethodException`: 方法不存在
 
+4. **资源管理**
+   - `ObjectDisposedException`: 尝试使用已释放的插件
+
 示例：
 ```csharp
 try
 {
-    var plugin = pluginHost.LoadPlugin("config.json");
-    // ...
+    using var plugin = pluginHost.LoadPlugin(configPath);
+    var method = plugin.GetFunction<Action>(assemblyPath, typeName, methodName);
+    method();
 }
 catch (ArgumentException ex)
 {
@@ -631,6 +478,10 @@ catch (ArgumentException ex)
 catch (InvalidOperationException ex)
 {
     Console.WriteLine($"运行时错误: {ex.Message}");
+}
+catch (ObjectDisposedException ex)
+{
+    Console.WriteLine($"插件已释放: {ex.Message}");
 }
 catch (Exception ex)
 {
@@ -641,6 +492,28 @@ catch (Exception ex)
     }
 }
 ```
+
+### 最佳实践
+
+1. **资源管理**
+   - 始终使用 `using` 语句管理插件生命周期
+   - 避免长时间持有未使用的插件实例
+   - 及时释放不再需要的插件
+
+2. **性能优化**
+   - 利用 `Plugin` 类的委托缓存机制
+   - 复用插件实例而不是频繁加载/卸载
+   - 合理组织插件粒度，避免过多的小插件
+
+3. **错误处理**
+   - 为每个插件操作添加适当的错误处理
+   - 记录详细的错误信息以便调试
+   - 实现优雅的降级策略
+
+4. **配置管理**
+   - 集中管理插件的配置路径和程序集信息
+   - 实现插件版本控制机制
+   - 保持清晰的插件依赖关系
 
 ### 插件开发指南
 
@@ -657,54 +530,62 @@ public class MyPlugin
 }
 ```
 
-2. **配置文件**
+2. **参数类型限制**
+   - 使用 `UnmanagedCallersOnly` 特性的方法必须遵循以下规则:
+     - 必须是 `static` 方法
+     - 返回类型必须是 `void` 或 blittable 类型
+     - 参数类型必须是 blittable 类型
+     - 不能有泛型参数
+     - 不能使用 `params` 关键字
+     - 不能使用 `in`、`out` 或 `ref` 修饰符
+
+   示例:
+   ```csharp
+   // ✅ 正确 - 基本数值类型
+   [UnmanagedCallersOnly]
+   public static int Add(int a, int b) => a + b;
+
+   // ✅ 正确 - 指针类型
+   [UnmanagedCallersOnly]
+   public static unsafe void* GetBuffer(int size) => /* ... */;
+
+   // ❌ 错误 - 非静态方法
+   [UnmanagedCallersOnly]
+   public int Multiply(int a, int b) => a * b;
+
+   // ❌ 错误 - 非 blittable 类型
+   [UnmanagedCallersOnly]
+   public static string GetName() => "test";
+
+   // ❌ 错误 - 泛型参数
+   [UnmanagedCallersOnly]
+   public static T GetValue<T>() => default;
+
+   // ❌ 错误 - ref 参数
+   [UnmanagedCallersOnly]
+   public static void Update(ref int value) => value++;
+   ```
+
+
+3. **配置文件**
 ```json
 {
   "runtimeOptions": {
     "tfm": "net7.0",
     "framework": {
       "name": "Microsoft.NETCore.App",
-      "version": "7.0.0"
+      "version": "8.0.0"
     }
   }
 }
 ```
 
-3. **编译设置**
+4. **编译设置**
 ```xml
 <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PublishAot>true</PublishAot>
 </PropertyGroup>
-```
-
-### 调试技巧
-
-1. **启用详细日志**
-```csharp
-var plugin = pluginHost.LoadPlugin("config.json");
-Console.WriteLine($"Plugin loaded: {plugin}");
-```
-
-2. **验证配置**
-```csharp
-if (!File.Exists(runtimeConfigPath))
-{
-    throw new FileNotFoundException("Runtime config not found", runtimeConfigPath);
-}
-```
-
-3. **检查方法可用性**
-```csharp
-try
-{
-    var method = pluginHost.GetFunction<Action>(plugin, ...);
-    method();
-}
-catch (MissingMethodException ex)
-{
-    Console.WriteLine($"Method not found: {ex.Message}");
-}
 ```
 
 ## 总结
