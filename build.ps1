@@ -96,10 +96,10 @@ Set-Location $ROOT_DIR
 # Build .NET libraries
 Write-Host "Building .NET libraries..."
 
-# Build NativeAotPluginHost
-Set-Location (Join-Path "src" "NativeAotPluginHost")
-if (-not (Test-Path "NativeAotPluginHost.csproj")) {
-    throw "Error: NativeAotPluginHost.csproj not found in $(Get-Location)"
+# Build NativePluginHost
+Set-Location (Join-Path "src" "NativePluginHost")
+if (-not (Test-Path "NativePluginHost.csproj")) {
+    throw "Error: NativePluginHost.csproj not found in $(Get-Location)"
 }
 $LIB_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
 dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT

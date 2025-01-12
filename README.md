@@ -6,8 +6,8 @@
 
 ```
 src/
-├── native_aot_plugin_host/   # 原生插件宿主库（C++）
-│── NativeAotPluginHost/      # .NET 插件宿主包装库(在编译为 AOT 的 .NET应用程序中使用)
+├── native_plugin_host/   # 原生插件宿主库（C++）
+│── NativePluginHost/      # .NET 插件宿主包装库(在编译为 AOT 的 .NET应用程序中使用)
 │── ManagedLibrary/           # 示例托管插件库
 └── DemoApp/                  # 演示应用程序（AOT 编译）
 tests/                        # 单元测试
@@ -70,9 +70,9 @@ public static class Calculator
 }
 
 // 在 AOT 应用程序中使用
-using NativeAotPluginHost;
+using NativePluginHost;
 
-using var pluginHost = new NativeAotPluginHost();
+using var pluginHost = new NativePluginHost();
 pluginHost.Initialize("ManagedLibrary.runtimeconfig.json");
 
 var add = pluginHost.GetFunction<AddDelegate>(
@@ -85,12 +85,12 @@ int result = add(5, 3);  // 结果: 8
 
 ## 组件说明
 
-1. **native_aot_plugin_host**
+1. **native_plugin_host**
    - C++ 实现的原生插件宿主库
    - 提供底层的程序集加载和函数调用功能
    - 跨平台实现（Windows/Linux/macOS）
 
-2. **NativeAotPluginHost (.NET)**
+2. **NativePluginHost (.NET)**
    - 原生库的 .NET 包装器
    - 提供友好的 .NET API
    - 实现 IDisposable 接口确保资源正确释放

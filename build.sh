@@ -48,10 +48,20 @@ mkdir -p "$OUTPUT_DIR"
 
 # Build native library and tests
 echo "Building native library and tests..."
-cmake .. -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUTPUT_DIR" -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$OUTPUT_DIR"
+cmake .. -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUTPUT_DIR" -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$OUTPUT_DIR" -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 
 # Go back to root directory
+cd "$ROOT_DIR"
+
+# Build NativePluginHost first
+echo "Building NativePluginHost..."
+cd src/NativePluginHost
+if [ ! -f "NativePluginHost.csproj" ]; then
+    echo "Error: NativePluginHost.csproj not found in $(pwd)"
+    exit 1
+fi
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
 cd "$ROOT_DIR"
 
 # Build test library
@@ -70,29 +80,35 @@ echo "Running tests..."
 ./native_hosting_tests
 cd "$ROOT_DIR"
 
-# Build .NET library first (since DemoApp depends on it)
-echo "Building .NET library..."
+# Build .NET library (since DemoApp depends on it)
+echo "Building ManagedLibrary..."
 cd src/ManagedLibrary
 if [ ! -f "ManagedLibrary.csproj" ]; then
     echo "Error: ManagedLibrary.csproj not found in $(pwd)"
     exit 1
 fi
-dotnet publish -c Debug -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
 cd "$ROOT_DIR"
 
-
-# Build demo app (after DemoLibrary is built)
+# Build demo app (after ManagedLibrary is built)
 echo "Building demo app..."
 cd src/DemoApp
 if [ ! -f "DemoApp.csproj" ]; then
     echo "Error: DemoApp.csproj not found in $(pwd)"
     exit 1
 fi
-dotnet publish -c Debug -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
+dotnet publish -c Release -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
 cd "$ROOT_DIR"
 
 echo "Build completed successfully!"
 echo "All outputs can be found in: build/$OUTPUT_DIR"
 echo ""
 echo "Directory structure:"
-ls -la "build/$OUTPUT_DIR" 
+ls -la "build/$OUTPUT_DIR"
+
+# Run demo app to verify everything works
+echo ""
+echo "Running demo app to verify the build..."
+cd "build/$OUTPUT_DIR"
+./DemoApp
+cd "$ROOT_DIR" 
