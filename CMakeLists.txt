@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(NativeHostingExtension)
 
 set(CMAKE_CXX_STANDARD 17)
+set(DOTNET_SDK_VERSION "9.0.0")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set architecture based on host system
@@ -58,23 +59,23 @@ message(STATUS "Using .NET SDK from: ${DOTNET_ROOT}")
 
 # Set include and library paths
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/9.0.0/runtimes/${HOST_ARCH}/native")
-    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/9.0.0/runtimes/${HOST_ARCH}/native")
+    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
+    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/{DOTNET_SDK_VERSION}runtimes/${HOST_ARCH}/native")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     # On macOS, we need to look in both the packs directory and the shared runtime directory
-    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/9.0.0/runtimes/${HOST_ARCH}/native")
+    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/{DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
     
     # Check both possible locations for the library
-    if(EXISTS "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/9.0.0/runtimes/${HOST_ARCH}/native/libnethost.a")
-        set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/9.0.0/runtimes/${HOST_ARCH}/native")
-    elseif(EXISTS "${DOTNET_ROOT}/shared/Microsoft.NETCore.App/9.0.0/libnethost.a")
-        set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/shared/Microsoft.NETCore.App/9.0.0")
+    if(EXISTS "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/{DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native/libnethost.a")
+        set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/{DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
+    elseif(EXISTS "${DOTNET_ROOT}/shared/Microsoft.NETCore.App/{DOTNET_SDK_VERSION}/libnethost.a")
+        set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/shared/Microsoft.NETCore.App/{DOTNET_SDK_VERSION}")
     else()
         message(FATAL_ERROR "Could not find libnethost.a in either packs or shared runtime directory")
     endif()
 else()
-    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/9.0.0/runtimes/${HOST_ARCH}/native")
-    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/9.0.0/runtimes/${HOST_ARCH}/native")
+    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/{DOTNET_SDK_VERSION}runtimes/${HOST_ARCH}/native")
+    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/{DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
 endif()
 
 if(NOT EXISTS ${DOTNET_HOSTING_INCLUDE_PATH})
