@@ -2,10 +2,10 @@
 
 /**
  * @file platform.h
- * @brief Platform-specific definitions and functions
+ * @brief 平台特定的定义和函数
  *
- * This header provides platform-specific macros, types and functions
- * to handle differences between operating systems.
+ * 此头文件提供平台特定的宏、类型和函数，
+ * 用于处理不同操作系统之间的差异。
  */
 
 #ifdef _WIN32
@@ -33,7 +33,7 @@ namespace native_plugin_host
 #endif
 
 /**
- * @brief Platform-specific library handle type
+ * @brief 平台特定的库句柄类型
  */
 #ifdef PLATFORM_WINDOWS
     using LibraryHandle = HMODULE;
@@ -42,9 +42,9 @@ namespace native_plugin_host
 #endif
 
     /**
-     * @brief Convert a C-style string to platform-specific char_t string
-     * @param str Input string
-     * @return Platform-specific string
+     * @brief 将C风格字符串转换为平台特定的char_t字符串
+     * @param str 输入字符串
+     * @return 平台特定的字符串
      */
     inline std::basic_string<char_t> to_char_t(const char *str)
     {
@@ -57,9 +57,9 @@ namespace native_plugin_host
     }
 
     /**
-     * @brief Load a dynamic library
-     * @param path Path to the library
-     * @return Handle to the loaded library or nullptr on failure
+     * @brief 加载动态库
+     * @param path 库的路径
+     * @return 已加载库的句柄，失败时返回nullptr
      */
     inline LibraryHandle load_library(const char_t *path)
     {
@@ -72,10 +72,10 @@ namespace native_plugin_host
     }
 
     /**
-     * @brief Get a function pointer from a loaded library
-     * @param lib Handle to the loaded library
-     * @param name Name of the function to get
-     * @return Function pointer or nullptr on failure
+     * @brief 从已加载的库中获取函数指针
+     * @param lib 已加载库的句柄
+     * @param name 要获取的函数名称
+     * @return 函数指针，失败时返回nullptr
      */
     inline void *get_function(LibraryHandle lib, const char *name)
     {
@@ -87,9 +87,9 @@ namespace native_plugin_host
     }
 
     /**
-     * @brief Unload a dynamic library
-     * @param lib Handle to the loaded library
-     * @return true if successful, false otherwise
+     * @brief 卸载动态库
+     * @param lib 已加载库的句柄
+     * @return 成功返回true，否则返回false
      */
     inline void free_library(LibraryHandle lib)
     {

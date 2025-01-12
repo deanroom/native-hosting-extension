@@ -1,4 +1,4 @@
-# Native AOT Plugin Host
+# Native Plugin Host
 
 本项目演示如何为 AOT 编译的 .NET 应用程序创建基于托管程序集的插件扩展。它包含一个原生插件宿主库，可以在 AOT 编译的应用程序中动态加载和执行托管程序集中的方法。
 

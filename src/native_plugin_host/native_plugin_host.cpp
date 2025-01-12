@@ -10,7 +10,7 @@
 
 using namespace native_plugin_host;
 
-// Plugin instance implementation
+// 插件实例实现
 class NativePlugin
 {
 public:
@@ -41,7 +41,7 @@ private:
     bool is_initialized;
 };
 
-// Host instance implementation
+// 宿主实例实现
 class NativeHost
 {
 public:
@@ -74,11 +74,11 @@ private:
     std::unordered_map<native_plugin_handle_t, std::unique_ptr<NativePlugin>> plugins;
 };
 
-// Global instance management
+// 全局实例管理
 static std::unordered_map<native_host_handle_t, std::unique_ptr<NativeHost>> g_hosts;
 static std::mutex g_hosts_mutex;
 
-// Implementation of the interface
+// 接口实现
 extern "C"
 {
 

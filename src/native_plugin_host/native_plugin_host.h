@@ -2,12 +2,10 @@
 
 /**
  * @file native_plugin_host.h
- * @brief Native Plugin Host Interface for .NET Runtime
+ * @brief .NET运行时的原生插件宿主接口
  *
- * This header provides the core functionality for hosting and interacting with
- * .NET Native AOT compiled assemblies from native code. It enables loading
- * .NET assemblies, initializing the runtime, and obtaining function pointers
- * to managed methods.
+ * 此头文件提供了从原生代码托管和交互.NET Native AOT编译程序集的核心功能。
+ * 它支持加载.NET程序集、初始化运行时以及获取托管方法的函数指针。
  */
 
 #ifdef _WIN32
@@ -27,66 +25,66 @@
 #include <string>
 
 /**
- * @brief Error codes for the native hosting API
+ * @brief 原生托管API的错误代码
  */
 typedef enum
 {
-    // Success codes (0 and positive values)
-    NATIVE_PLUGIN_HOST_SUCCESS = 0, ///< Operation completed successfully
+    // 成功代码（0和正值）
+    NATIVE_PLUGIN_HOST_SUCCESS = 0, ///< 操作成功完成
 
-    // Host errors (-100 to -199)
-    NATIVE_PLUGIN_HOST_ERROR_HOST_NOT_FOUND = -100, ///< Host instance not found
+    // 宿主错误（-100到-199）
+    NATIVE_PLUGIN_HOST_ERROR_HOST_NOT_FOUND = -100, ///< 未找到宿主实例
 
-    // Plugin errors (-200 to -299)
-    NATIVE_PLUGIN_HOST_ERROR_PLUGIN_NOT_FOUND = -200,       ///< Plugin not found
-    NATIVE_PLUGIN_HOST_ERROR_PLUGIN_NOT_INITIALIZED = -203, ///< Plugin is not initialized
+    // 插件错误（-200到-299）
+    NATIVE_PLUGIN_HOST_ERROR_PLUGIN_NOT_FOUND = -200,       ///< 未找到插件
+    NATIVE_PLUGIN_HOST_ERROR_PLUGIN_NOT_INITIALIZED = -203, ///< 插件未初始化
 
-    // Runtime errors (-300 to -399)
-    NATIVE_PLUGIN_HOST_ERROR_RUNTIME_INIT = -300,       ///< Failed to initialize runtime
-    NATIVE_PLUGIN_HOST_ERROR_HOSTFXR_NOT_FOUND = -302,  ///< hostfxr library not found
-    NATIVE_PLUGIN_HOST_ERROR_DELEGATE_NOT_FOUND = -303, ///< Failed to get required function delegate
+    // 运行时错误（-300到-399）
+    NATIVE_PLUGIN_HOST_ERROR_RUNTIME_INIT = -300,       ///< 运行时初始化失败
+    NATIVE_PLUGIN_HOST_ERROR_HOSTFXR_NOT_FOUND = -302,  ///< 未找到hostfxr库
+    NATIVE_PLUGIN_HOST_ERROR_DELEGATE_NOT_FOUND = -303, ///< 获取所需函数委托失败
 
-    // Assembly errors (-400 to -499)
-    NATIVE_PLUGIN_HOST_ERROR_ASSEMBLY_LOAD = -400, ///< Failed to load assembly
-    NATIVE_PLUGIN_HOST_ERROR_TYPE_LOAD = -401,     ///< Failed to load type
-    NATIVE_PLUGIN_HOST_ERROR_METHOD_LOAD = -402,   ///< Failed to load method
+    // 程序集错误（-400到-499）
+    NATIVE_PLUGIN_HOST_ERROR_ASSEMBLY_LOAD = -400, ///< 加载程序集失败
+    NATIVE_PLUGIN_HOST_ERROR_TYPE_LOAD = -401,     ///< 加载类型失败
+    NATIVE_PLUGIN_HOST_ERROR_METHOD_LOAD = -402,   ///< 加载方法失败
 
-    // General errors (-500 to -599)
-    NATIVE_PLUGIN_HOST_ERROR_INVALID_ARG = -500, ///< Invalid argument provided
+    // 通用错误（-500到-599）
+    NATIVE_PLUGIN_HOST_ERROR_INVALID_ARG = -500, ///< 提供了无效参数
 } NativePluginHostStatus;
 
 /**
- * @brief Opaque handle type for native host instance
+ * @brief 原生宿主实例的不透明句柄类型
  */
 typedef void *native_host_handle_t;
 
 /**
- * @brief Opaque handle type for plugin instance
+ * @brief 插件实例的不透明句柄类型
  */
 typedef void *native_plugin_handle_t;
 
 extern "C"
 {
     /**
-     * @brief Create a new native host instance
-     * @param[out] out_handle Pointer to store the resulting host handle
-     * @return NativePluginHostStatus indicating success or specific error
+     * @brief 创建新的原生宿主实例
+     * @param[out] out_handle 用于存储结果宿主句柄的指针
+     * @return NativePluginHostStatus 表示成功或特定错误
      */
     NATIVE_PLUGIN_HOST_API NativePluginHostStatus native_plugin_host_create(native_host_handle_t *out_handle);
 
     /**
-     * @brief Destroy a native host instance and cleanup all its plugins
-     * @param handle The host instance handle to destroy
-     * @return NativePluginHostStatus indicating success or specific error
+     * @brief 销毁原生宿主实例并清理其所有插件
+     * @param handle 要销毁的宿主实例句柄
+     * @return NativePluginHostStatus 表示成功或特定错误
      */
     NATIVE_PLUGIN_HOST_API NativePluginHostStatus native_plugin_host_destroy(native_host_handle_t handle);
 
     /**
-     * @brief Load a plugin into the host with the specified runtime configuration
-     * @param host_handle The host instance handle
-     * @param runtime_config_path Path to the runtime configuration JSON file
-     * @param[out] out_plugin_handle Pointer to store the resulting plugin handle
-     * @return NativePluginHostStatus indicating success or specific error
+     * @brief 使用指定的运行时配置将插件加载到宿主中
+     * @param host_handle 宿主实例句柄
+     * @param runtime_config_path 运行时配置JSON文件的路径
+     * @param[out] out_plugin_handle 用于存储结果插件句柄的指针
+     * @return NativePluginHostStatus 表示成功或特定错误
      */
     NATIVE_PLUGIN_HOST_API NativePluginHostStatus native_plugin_host_load(
         native_host_handle_t host_handle,
@@ -94,10 +92,10 @@ extern "C"
         native_plugin_handle_t *out_plugin_handle);
 
     /**
-     * @brief Unload a plugin from the host and cleanup its resources
-     * @param host_handle The host instance handle
-     * @param plugin_handle The plugin handle to unload
-     * @return NativePluginHostStatus indicating success or specific error
+     * @brief 从宿主中卸载插件并清理其资源
+     * @param host_handle 宿主实例句柄
+     * @param plugin_handle 要卸载的插件句柄
+     * @return NativePluginHostStatus 表示成功或特定错误
      */
     NATIVE_PLUGIN_HOST_API NativePluginHostStatus native_plugin_host_unload(
         native_host_handle_t host_handle,
