@@ -1,20 +1,24 @@
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
+using ManagedLibrary2;
 
 namespace ManagedLibrary;
 
-public static class Calculator
+public class Calculator
 {
+    private static readonly ILogger<Calculator> _logger = ManagedLibrary2.LoggerFactory.CreateLogger<Calculator>();
+
     [UnmanagedCallersOnly]
     public static void Hello()
     {
-        Console.WriteLine("Hello, World!");
+        _logger.LogInformation("Hello, World!");
     }
 
     [UnmanagedCallersOnly]
     public static int Add(int a, int b)
     {
         var result = a + b;
-        Console.WriteLine($"Add: {a} + {b} = {result}");
+        _logger.LogInformation("Add: {A} + {B} = {Result}", a, b, result);
         return result;
     }
 
@@ -22,7 +26,7 @@ public static class Calculator
     public static int Subtract(int a, int b)
     {
         var result = a - b;
-        Console.WriteLine($"Subtract: {a} - {b} = {result}");
+        _logger.LogInformation("Subtract: {A} - {B} = {Result}", a, b, result);
         return result;
     }
 }

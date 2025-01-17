@@ -1,15 +1,20 @@
-add_library(native_plugin_host SHARED
-    native_plugin_host.cpp
-    native_plugin_host.h
+add_library(native_host SHARED
+    native_host.cpp
 )
 
-target_include_directories(native_plugin_host PRIVATE
+# Copy init.runtimeconfig.json to bin directory
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/init.runtimeconfig.json"
+     DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+
+target_include_directories(native_host
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${DOTNET_HOSTING_INCLUDE_PATH}
 )
 
 # Add compile definitions for all platforms
-target_compile_definitions(native_plugin_host PRIVATE 
-    NATIVE_PLUGIN_HOST_EXPORTS
+target_compile_definitions(native_host PRIVATE 
+    NATIVE_HOST_EXPORTS
 )
 
 if(WIN32)
@@ -28,14 +33,14 @@ if(WIN32)
         endif()
     endforeach()
 
-    target_compile_definitions(native_plugin_host PRIVATE 
-        NATIVE_PLUGIN_HOST_EXPORTS
+    target_compile_definitions(native_host PRIVATE 
+        NATIVE_HOST_EXPORTS
         _WINDOWS
         _USRDLL
         NETHOST_USE_AS_STATIC
     )
     
-    set_target_properties(native_plugin_host PROPERTIES
+    set_target_properties(native_host PROPERTIES
         PREFIX ""
         SUFFIX ".dll"
         WINDOWS_EXPORT_ALL_SYMBOLS ON
@@ -68,7 +73,7 @@ if(WIN32)
         if(NOT EXISTS "${DOTNET_HOSTING_LIB_PATH}/nethost.lib")
             message(FATAL_ERROR "nethost.lib not found at ${DOTNET_HOSTING_LIB_PATH}/nethost.lib")
         endif()
-        target_link_libraries(native_plugin_host PRIVATE 
+        target_link_libraries(native_host PRIVATE 
             "${DOTNET_HOSTING_LIB_PATH}/nethost.lib"
             shlwapi.lib
             pathcch.lib
@@ -79,7 +84,7 @@ if(WIN32)
         if(NOT EXISTS "${DOTNET_HOSTING_LIB_PATH}/libnethost.lib")
             message(FATAL_ERROR "libnethost.lib not found at ${DOTNET_HOSTING_LIB_PATH}/libnethost.lib")
         endif()
-        target_link_libraries(native_plugin_host PRIVATE 
+        target_link_libraries(native_host PRIVATE 
             "${DOTNET_HOSTING_LIB_PATH}/libnethost.lib"
             shlwapi.lib
             pathcch.lib
@@ -94,11 +99,11 @@ elseif(APPLE)
     message(STATUS "  Host Architecture: ${HOST_ARCH}")
     message(STATUS "  Library Path: ${DOTNET_HOSTING_LIB_PATH}")
 
-    target_compile_definitions(native_plugin_host PRIVATE 
-        native_plugin_host_EXPORTS
+    target_compile_definitions(native_host PRIVATE 
+        NATIVE_HOST_EXPORTS
     )
     
-    set_target_properties(native_plugin_host PROPERTIES
+    set_target_properties(native_host PROPERTIES
         MACOSX_RPATH ON
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN ON
@@ -118,14 +123,14 @@ elseif(APPLE)
         message(STATUS "  ${FILE}")
     endforeach()
 
-    target_link_libraries(native_plugin_host PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
-    target_link_options(native_plugin_host PRIVATE -framework CoreFoundation)
+    target_link_libraries(native_host PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
+    target_link_options(native_host PRIVATE -framework CoreFoundation)
 else()
-    target_compile_definitions(native_plugin_host PRIVATE native_plugin_host_EXPORTS)
-    set_target_properties(native_plugin_host PROPERTIES
+    target_compile_definitions(native_host PRIVATE NATIVE_HOST_EXPORTS)
+    set_target_properties(native_host PROPERTIES
         PREFIX "lib"
         SUFFIX ".so"
     )
-    target_link_libraries(native_plugin_host PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
-    target_link_libraries(native_plugin_host PRIVATE dl)
+    target_link_libraries(native_host PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
+    target_link_libraries(native_host PRIVATE dl)
 endif() 

@@ -11,32 +11,32 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 # Add test executable
-add_executable(native_hosting_tests
-    native_hosting_tests.cpp
+add_executable(native_host_tests
+    native_host_tests.cpp
 )
 
 # Set the output directory for the test executable
-set_target_properties(native_hosting_tests PROPERTIES
+set_target_properties(native_host_tests PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
 )
 
 # Link against Google Test and our library
-target_link_libraries(native_hosting_tests
+target_link_libraries(native_host_tests
     PRIVATE
     GTest::gtest_main
-    native_plugin_host
+    native_host
 )
 
 if(APPLE)
-    target_link_libraries(native_hosting_tests PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
+    target_link_libraries(native_host_tests PRIVATE "${DOTNET_HOSTING_LIB_PATH}/libnethost.a")
 endif()
 
 # Include directories
-target_include_directories(native_hosting_tests
+target_include_directories(native_host_tests
     PRIVATE
-    ${CMAKE_SOURCE_DIR}/src/native_plugin_host
+    ${CMAKE_SOURCE_DIR}/src/native_host
     ${DOTNET_HOSTING_INCLUDE_PATH}
 )
 
@@ -47,7 +47,7 @@ add_custom_target(build_test_library ALL
 )
 
 # Copy TestLibrary files to output directory
-add_custom_command(TARGET native_hosting_tests POST_BUILD
+add_custom_command(TARGET native_host_tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/tests/TestLibrary/bin/Release/net9.0/TestLibrary.dll
         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/TestLibrary.dll
@@ -57,17 +57,17 @@ add_custom_command(TARGET native_hosting_tests POST_BUILD
 )
 
 # Make sure TestLibrary is built before the tests
-add_dependencies(native_hosting_tests build_test_library)
+add_dependencies(native_host_tests build_test_library)
 
 # Add the test directly to CTest
 add_test(
-    NAME native_hosting_tests
-    COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/native_hosting_tests
+    NAME native_host_tests
+    COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/native_host_tests
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 # Set test environment
-set_tests_properties(native_hosting_tests PROPERTIES
+set_tests_properties(native_host_tests PROPERTIES
     ENVIRONMENT "PATH=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}:$ENV{PATH}"
 )
 

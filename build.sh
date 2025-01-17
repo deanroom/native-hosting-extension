@@ -67,7 +67,7 @@ cd "$ROOT_DIR"
 # Run tests
 cd build/bin
 echo "Running tests..."
-./native_hosting_tests
+./native_host_tests
 cd "$ROOT_DIR"
 
 # Build .NET library first (since DemoApp depends on it)

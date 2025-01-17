@@ -1,9 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PreserveCompilationContext>true</PreserveCompilationContext>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,4 +10,4 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
   </ItemGroup>
 
-</Project> 
+</Project>

@@ -6,8 +6,8 @@
 
 ```
 src/
-├── native_plugin_host/   # 原生插件宿主库（C++）
-├── NativePluginHost/     # .NET 插件宿主包装库
+├── native_host/   # 原生插件宿主库（C++）
+├── NativeHost/     # .NET 插件宿主包装库
 ├── ManagedLibrary/      # 示例托管插件库
 └── DemoApp/             # 演示应用程序
 ```

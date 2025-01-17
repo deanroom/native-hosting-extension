@@ -250,12 +250,12 @@ graph TB
 ```cpp
 class NativeHost {
     // 插件实例映射表
-    std::unordered_map<native_plugin_handle_t, std::unique_ptr<NativePlugin>> plugins;
+    std::unordered_map<native_assembly_handle_t, std::unique_ptr<NativePlugin>> plugins;
     
     // 插件管理方法
-    NativePlugin* get_plugin(native_plugin_handle_t handle);
-    native_plugin_handle_t add_plugin(std::unique_ptr<NativePlugin> plugin);
-    bool remove_plugin(native_plugin_handle_t handle);
+    NativePlugin* get_plugin(native_assembly_handle_t handle);
+    native_assembly_handle_t add_plugin(std::unique_ptr<NativePlugin> plugin);
+    bool remove_plugin(native_assembly_handle_t handle);
 };
 ```
 
@@ -292,23 +292,23 @@ class NativePlugin {
 ```cpp
 typedef enum {
     // 成功代码（0和正值）
-    NATIVE_PLUGIN_HOST_SUCCESS = 0,
+    native_host_SUCCESS = 0,
 
     // 宿主错误（-100到-199）
-    NATIVE_PLUGIN_HOST_ERROR_HOST_NOT_FOUND = -100,
+    native_host_ERROR_HOST_NOT_FOUND = -100,
 
     // 插件错误（-200到-299）
-    NATIVE_PLUGIN_HOST_ERROR_PLUGIN_NOT_FOUND = -200,
+    native_host_ERROR_PLUGIN_NOT_FOUND = -200,
     
     // 运行时错误（-300到-399）
-    NATIVE_PLUGIN_HOST_ERROR_RUNTIME_INIT = -300,
+    native_host_ERROR_RUNTIME_INIT = -300,
     
     // 程序集错误（-400到-499）
-    NATIVE_PLUGIN_HOST_ERROR_ASSEMBLY_LOAD = -400,
+    native_host_ERROR_ASSEMBLY_LOAD = -400,
     
     // 通用错误（-500到-599）
-    NATIVE_PLUGIN_HOST_ERROR_INVALID_ARG = -500,
-} NativePluginHostStatus;
+    native_host_ERROR_INVALID_ARG = -500,
+} NativeHostStatus;
 ```
 
 ### 托管侧 PluginHost 设计

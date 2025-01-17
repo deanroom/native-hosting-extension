@@ -90,16 +90,16 @@ Set-Location $ROOT_DIR
 # Run tests
 Set-Location $BUILD_DIR/bin
 Write-Host "Running tests..."
-./native_hosting_tests.exe
+./native_host_tests.exe
 Set-Location $ROOT_DIR
 
 # Build .NET libraries
 Write-Host "Building .NET libraries..."
 
-# Build NativePluginHost
-Set-Location (Join-Path "src" "NativePluginHost")
-if (-not (Test-Path "NativePluginHost.csproj")) {
-    throw "Error: NativePluginHost.csproj not found in $(Get-Location)"
+# Build NativeHost
+Set-Location (Join-Path "src" "NativeHost")
+if (-not (Test-Path "NativeHost.csproj")) {
+    throw "Error: NativeHost.csproj not found in $(Get-Location)"
 }
 $LIB_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
 dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT

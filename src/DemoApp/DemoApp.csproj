@@ -9,6 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\NativePluginHost\NativePluginHost.csproj" />
+    <ProjectReference Include="..\NativeHost\NativeHost.csproj" />
   </ItemGroup>
 </Project> 
