@@ -1,100 +1,67 @@
 #!/bin/bash
-
-# Exit on error
 set -e
 
-rm -rf build
+# Default values
+BUILD_TYPE="Debug"
+BUILD_DIR="build"
+CLEAN=1
+RUN_TESTS=1
 
-# Detect OS
-OS="unknown"
-RUNTIME_ID="unknown"
-case "$(uname)" in
-    "Darwin")
-        OS="macos"
-        RUNTIME_ID="osx-arm64"
-        # Check if dotnet is installed via homebrew
-        if [ -d "/opt/homebrew/share/dotnet" ]; then
-            export DOTNET_ROOT="/opt/homebrew/share/dotnet"
-        elif [ -d "/usr/local/share/dotnet" ]; then
-            export DOTNET_ROOT="/usr/local/share/dotnet"
-        fi
-        ;;
-    "Linux")
-        OS="linux"
-        RUNTIME_ID="linux-x64"
-        export DOTNET_ROOT="/usr/share/dotnet"
-        ;;
-    MINGW*|MSYS*|CYGWIN*)
-        OS="windows"
-        RUNTIME_ID="win-x64"
-        export DOTNET_ROOT="$ProgramFiles/dotnet"
-        ;;
-esac
+# Detect number of CPU cores
+if [ "$(uname)" = "Darwin" ]; then
+    NUM_CORES=$(sysctl -n hw.ncpu)
+elif [ "$(uname)" = "Linux" ]; then
+    NUM_CORES=$(nproc)
+else
+    NUM_CORES=4  # Default to 4 cores on other platforms
+fi
 
-echo "Detected OS: $OS"
-echo "Runtime Identifier: $RUNTIME_ID"
-echo "DOTNET_ROOT: $DOTNET_ROOT"
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --debug)
+            BUILD_TYPE="Debug"
+            shift
+            ;;
+        --clean)
+            CLEAN=1
+            shift
+            ;;
+        --test)
+            RUN_TESTS=1
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--debug] [--clean] [--test]"
+            exit 1
+            ;;
+    esac
+done
 
-# Store the root directory
-ROOT_DIR=$(pwd)
+# Clean build directory if requested
+if [ $CLEAN -eq 1 ]; then
+    echo "Cleaning build directory..."
+    rm -rf $BUILD_DIR
+fi
 
 # Create build directory
-mkdir -p build
-cd build
+mkdir -p $BUILD_DIR
 
-# Create output directory
-OUTPUT_DIR="bin"
-mkdir -p "$OUTPUT_DIR"
+# Configure CMake
+echo "Configuring CMake..."
+cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
-# Build native library and tests
-echo "Building native library and tests..."
-cmake .. -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$OUTPUT_DIR" -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$OUTPUT_DIR"
-cmake --build . --config Release
+# Build the project
+echo "Building project..."
+cmake --build $BUILD_DIR --config $BUILD_TYPE -j$NUM_CORES
 
-# Go back to root directory
-cd "$ROOT_DIR"
-
-# Build test library
-echo "Building test library..."
-cd tests/TestLibrary
-if [ ! -f "TestLibrary.csproj" ]; then
-    echo "Error: TestLibrary.csproj not found in $(pwd)"
-    exit 1
+# Run tests if requested
+if [ $RUN_TESTS -eq 1 ]; then
+    echo "Running tests..."
+    cd $BUILD_DIR
+    ctest --output-on-failure --build-config $BUILD_TYPE
+    cd ..
 fi
-dotnet publish -c Release -r $RUNTIME_ID -o "../../build/tests"
-cd "$ROOT_DIR"
-
-# Run tests
-cd build/bin
-echo "Running tests..."
-./native_host_tests
-cd "$ROOT_DIR"
-
-# Build .NET library first (since DemoApp depends on it)
-echo "Building .NET library..."
-cd src/ManagedLibrary
-if [ ! -f "ManagedLibrary.csproj" ]; then
-    echo "Error: ManagedLibrary.csproj not found in $(pwd)"
-    exit 1
-fi
-dotnet publish -c Debug -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
-cd "$ROOT_DIR"
-
-
-# Build demo app (after DemoLibrary is built)
-echo "Building demo app..."
-cd src/DemoApp
-if [ ! -f "DemoApp.csproj" ]; then
-    echo "Error: DemoApp.csproj not found in $(pwd)"
-    exit 1
-fi
-dotnet publish -c Debug -r $RUNTIME_ID -o "../../build/$OUTPUT_DIR"
-cd "$ROOT_DIR"
-
-# Run demo app
-echo "Running demo app..."
-cd build/bin
-./DemoApp
-cd "$ROOT_DIR"
 
 echo "Build completed successfully!"

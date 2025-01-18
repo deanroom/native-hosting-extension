@@ -1,106 +1,89 @@
-cmake_minimum_required(VERSION 3.15)
-project(NativeHostingExtension)
+cmake_minimum_required(VERSION 3.20)
+project(native-hosting-extension)
 
+# Set .NET SDK version
+set(DOTNET_SDK_VERSION "9.0.0" CACHE STRING ".NET SDK version")
+
+# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
-set(DOTNET_SDK_VERSION "9.0.0")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Set architecture based on host system
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "AMD64")
-        set(HOST_ARCH "win-x64")
-        set(CMAKE_GENERATOR_PLATFORM "x64")
-    else()
-        set(HOST_ARCH "win-arm64")
-        set(CMAKE_GENERATOR_PLATFORM "ARM64")
-    endif()
-    message(STATUS "Windows architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
-    message(STATUS "Selected HOST_ARCH: ${HOST_ARCH}")
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
-        set(HOST_ARCH "osx-arm64")
-    else()
-        set(HOST_ARCH "osx-x64")
-    endif()
-    set(CMAKE_OSX_ARCHITECTURES "${CMAKE_HOST_SYSTEM_PROCESSOR}")
-    message(STATUS "macOS architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
-    message(STATUS "Selected HOST_ARCH: ${HOST_ARCH}")
-else()
-    set(HOST_ARCH "linux-x64")
-endif()
-
-# Find .NET Core SDK path
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    set(DOTNET_ROOT $ENV{ProgramFiles}/dotnet)
-    # Additional check for x86 Program Files
-    if(NOT EXISTS ${DOTNET_ROOT})
-        set(DOTNET_ROOT "$ENV{ProgramFiles(x86)}/dotnet")
-    endif()
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    # Check for Homebrew installation first
-    if(EXISTS "/opt/homebrew/share/dotnet")
-        set(DOTNET_ROOT "/opt/homebrew/share/dotnet")
-    elseif(EXISTS "/usr/local/share/dotnet")
-        set(DOTNET_ROOT "/usr/local/share/dotnet")
-    else()
-        message(FATAL_ERROR "Could not find .NET SDK in common locations")
-    endif()
-    message(STATUS "Found .NET SDK at: ${DOTNET_ROOT}")
-else()
-    set(DOTNET_ROOT "/usr/share/dotnet")
-endif()
-
-# Verify DOTNET_ROOT exists
-if(NOT EXISTS ${DOTNET_ROOT})
-    message(FATAL_ERROR "DOTNET_ROOT not found at ${DOTNET_ROOT}")
-endif()
-
-message(STATUS "Using .NET SDK from: ${DOTNET_ROOT}")
-
-# Set include and library paths
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
-    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    # On macOS, we need to look in both the packs directory and the shared runtime directory
-    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
-    
-    # Check both possible locations for the library
-    if(EXISTS "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native/libnethost.a")
-        set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
-    elseif(EXISTS "${DOTNET_ROOT}/shared/Microsoft.NETCore.App/${DOTNET_SDK_VERSION}/libnethost.a")
-        set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/shared/Microsoft.NETCore.App/${DOTNET_SDK_VERSION}")
-    else()
-        message(FATAL_ERROR "Could not find libnethost.a in either packs or shared runtime directory")
-    endif()
-else()
-    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}runtimes/${HOST_ARCH}/native")
-    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/${HOST_ARCH}/native")
-endif()
-
-if(NOT EXISTS ${DOTNET_HOSTING_INCLUDE_PATH})
-    message(FATAL_ERROR "Include path not found at ${DOTNET_HOSTING_INCLUDE_PATH}")
-endif()
-
-if(NOT EXISTS ${DOTNET_HOSTING_LIB_PATH})
-    message(FATAL_ERROR "Library path not found at ${DOTNET_HOSTING_LIB_PATH}")
-endif()
-
-message(STATUS "Using include path: ${DOTNET_HOSTING_INCLUDE_PATH}")
-message(STATUS "Using library path: ${DOTNET_HOSTING_LIB_PATH}")
-
-# List files in the library path for debugging
-message(STATUS "Files in library path:")
-file(GLOB LIB_FILES "${DOTNET_HOSTING_LIB_PATH}/*")
-foreach(FILE ${LIB_FILES})
-    message(STATUS "  ${FILE}")
-endforeach()
 
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# Detect host architecture
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+    set(HOST_ARCH "arm64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(HOST_ARCH "x64")
+else()
+    message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+# Find .NET SDK
+find_program(DOTNET_EXE dotnet)
+if(NOT DOTNET_EXE)
+    message(FATAL_ERROR ".NET SDK not found")
+endif()
+
+# Verify .NET SDK version
+execute_process(
+    COMMAND ${DOTNET_EXE} --version
+    OUTPUT_VARIABLE DOTNET_VERSION_OUTPUT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(NOT DOTNET_VERSION_OUTPUT MATCHES "^${DOTNET_SDK_VERSION}")
+    message(WARNING "Installed .NET SDK version (${DOTNET_VERSION_OUTPUT}) does not match required version (${DOTNET_SDK_VERSION})")
+endif()
+
+# Find .NET hosting bundle
+if(WIN32)
+    set(DOTNET_ROOT "$ENV{ProgramFiles}/dotnet")
+elseif(APPLE)
+    set(DOTNET_ROOT "/usr/local/share/dotnet")
+else()
+    set(DOTNET_ROOT "/usr/share/dotnet")
+endif()
+
+# Set .NET hosting paths
+if(WIN32)
+    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}-windows/${DOTNET_SDK_VERSION}/runtimes/win-${HOST_ARCH}/native")
+elseif(APPLE)
+    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.osx-${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/osx-${HOST_ARCH}/native")
+else()
+    set(DOTNET_HOSTING_LIB_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.linux-${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/linux-${HOST_ARCH}/native")
+endif()
+
+# Set include path based on current platform
+if(WIN32)
+    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${HOST_ARCH}-windows/${DOTNET_SDK_VERSION}/runtimes/win-${HOST_ARCH}/native")
+elseif(APPLE)
+    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.osx-${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/osx-${HOST_ARCH}/native")
+else()
+    set(DOTNET_HOSTING_INCLUDE_PATH "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.linux-${HOST_ARCH}/${DOTNET_SDK_VERSION}/runtimes/linux-${HOST_ARCH}/native")
+endif()
+
+# Verify native hosting files exist
+if(NOT EXISTS "${DOTNET_HOSTING_INCLUDE_PATH}/nethost.h")
+    message(FATAL_ERROR "nethost.h not found at ${DOTNET_HOSTING_INCLUDE_PATH}")
+endif()
+
+if(NOT EXISTS "${DOTNET_HOSTING_LIB_PATH}/libnethost.a" AND NOT EXISTS "${DOTNET_HOSTING_LIB_PATH}/nethost.lib")
+    message(FATAL_ERROR "nethost library not found at ${DOTNET_HOSTING_LIB_PATH}")
+endif()
+
+# Build .NET projects
+add_custom_target(build_managed ALL
+    COMMAND ${DOTNET_EXE} build ${CMAKE_SOURCE_DIR}/src/ManagedLibrary/ManagedLibrary.csproj -c Release
+    COMMAND ${DOTNET_EXE} build ${CMAKE_SOURCE_DIR}/src/NativeHost/NativeHost.csproj -c Release
+    COMMAND ${DOTNET_EXE} build ${CMAKE_SOURCE_DIR}/src/DemoApp/DemoApp.csproj -c Release
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
 
 # Add subdirectories
 add_subdirectory(src/native_host)
 add_subdirectory(tests)
+
+# Enable testing
+enable_testing()
