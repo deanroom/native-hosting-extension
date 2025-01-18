@@ -5,59 +5,62 @@ namespace DemoApp;
 
 class Program
 {
-    // Delegate definitions
-    private delegate int CalculationDelegate(int a, int b);
-    private delegate void VoidDelegate();
+    // Define delegates matching Calculator.cs methods
+    private delegate int CalculateDelegate(int a, int b);
+    private delegate void HelloDelegate();
 
     static void Main(string[] args)
     {
+        // Create native host instance
         using var host = new NativeHost.NativeHost();
+        Console.WriteLine("Native host initialized successfully.");
 
         try
         {
+            // Get paths
             var baseDir = AppContext.BaseDirectory;
+            var libraryPath = Path.Combine(baseDir, "ManagedLibrary.dll");
 
-            // Load the calculator assembly
-            var calculatorAssemblyPath = Path.Combine(baseDir, "ManagedLibrary.dll");
-            var calculatorTypeName = "ManagedLibrary.Calculator, ManagedLibrary";
+            // Load managed library
+            Console.WriteLine($"\nLoading library: {libraryPath}");
+            using var library = host.Load(libraryPath);
+            Console.WriteLine($"Library loaded successfully. Handle: 0x{library.Handle:X}");
 
-            using var calculator = host.LoadAssembly(calculatorAssemblyPath);
-            Console.WriteLine($"Loaded calculator assembly: {calculator.Handle}");
+            // Get managed type information
+            const string TypeName = "ManagedLibrary.Calculator";
+            Console.WriteLine($"\nAccessing type: {TypeName}");
 
-            // Get and test calculator functions
-            var add = calculator.GetFunction<CalculationDelegate>(
-                calculatorTypeName,
-                "Add"
-            );
-            var subtract = calculator.GetFunction<CalculationDelegate>(
-                calculatorTypeName,
-                "Subtract"
-            );
-            var hello = calculator.GetFunction<VoidDelegate>(
-                calculatorTypeName,
-                "Hello"
-            );
+            // Get function pointers
+            var hello = library.GetFunction<HelloDelegate>($"{TypeName}, ManagedLibrary", "Hello");
+            var add = library.GetFunction<CalculateDelegate>($"{TypeName}, ManagedLibrary", "Add");
+            var subtract = library.GetFunction<CalculateDelegate>($"{TypeName}, ManagedLibrary", "Subtract");
 
-            // Test calculator functionality
-            Console.WriteLine("Testing calculator assembly:");
+            // Test functions
+            Console.WriteLine("\nTesting managed functions:");
+
+            Console.WriteLine("Calling Hello():");
             hello();
-            Console.WriteLine($"Add(5, 3) = {add(5, 3)}");
-            Console.WriteLine($"Subtract(10, 4) = {subtract(10, 4)}");
 
-            // Demonstrate unloading assembly
-            Console.WriteLine("\nUnloading calculator assembly...");
-            calculator.Dispose();
-            Console.WriteLine("Calculator assembly unloaded successfully.");
+            var a = 10;
+            var b = 5;
 
-            // You can load more assemblies here...
+            Console.WriteLine($"\nTesting calculator operations:");
+            var sum = add(a, b);
+            var difference = subtract(a, b);
+
+            Console.WriteLine($"{a} + {b} = {sum}");
+            Console.WriteLine($"{a} - {b} = {difference}");
+
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"\nError: {ex.Message}");
             if (ex.InnerException != null)
             {
                 Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
             }
         }
+
+        Console.WriteLine("\nDemo completed.");
     }
 }

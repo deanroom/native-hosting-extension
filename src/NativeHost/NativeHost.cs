@@ -1,32 +1,29 @@
 using System.Runtime.InteropServices;
-
 namespace NativeHost;
 
 /// <summary>
-/// Native host wrapper for managing .NET assemblies in native applications.
-/// Provides managed methods corresponding to the native API for dynamically loading
-/// and executing methods from managed assemblies.
+/// Native host for managing .NET assemblies in native applications
 /// </summary>
-public class NativeHost : IDisposable
+public sealed class NativeHost : IDisposable
 {
     private bool _isDisposed;
-    private IntPtr _handle;
+    private readonly IntPtr _handle;
     private readonly Dictionary<IntPtr, Assembly> _assemblies;
 
     public NativeHost()
     {
         _assemblies = new Dictionary<IntPtr, Assembly>();
-        var result = NativeMethods.Create(out _handle);
-        if (result < 0)
+
+        var status = NativeMethods.Create(out _handle);
+        if (status != NativeHostStatus.Success)
         {
-            ThrowForError(result, "Failed to create host instance");
+            ThrowForStatus(status, "Failed to create host instance");
         }
 
-        // Initialize runtime
-        result = NativeMethods.Initialize(_handle);
-        if (result < 0)
+        status = NativeMethods.Initialize(_handle);
+        if (status != NativeHostStatus.Success)
         {
-            ThrowForError(result, "Failed to initialize runtime");
+            ThrowForStatus(status, "Failed to initialize runtime");
         }
     }
 
@@ -35,21 +32,19 @@ public class NativeHost : IDisposable
     /// </summary>
     /// <param name="assemblyPath">Path to the .NET assembly file</param>
     /// <returns>Assembly instance</returns>
-    /// <exception cref="ArgumentException">Invalid assembly path</exception>
-    /// <exception cref="InvalidOperationException">Runtime not initialized or other runtime error</exception>
-    /// <exception cref="DllNotFoundException">hostfxr library not found</exception>
-    /// <exception cref="TypeInitializationException">Runtime initialization failed</exception>
-    public Assembly LoadAssembly(string assemblyPath)
+    public Assembly Load(string assemblyPath)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrEmpty(assemblyPath))
         {
             throw new ArgumentException("Assembly path cannot be null or empty", nameof(assemblyPath));
         }
 
-        var result = NativeMethods.LoadAssembly(_handle, assemblyPath, out var assemblyHandle);
-        if (result < 0)
+        var status = NativeMethods.Load(_handle, assemblyPath, out var assemblyHandle);
+        if (status != NativeHostStatus.Success)
         {
-            ThrowForError(result, assemblyPath);
+            ThrowForStatus(status, $"Failed to load assembly: {assemblyPath}");
         }
 
         var assembly = new Assembly(this, assemblyHandle, assemblyPath);
@@ -60,177 +55,158 @@ public class NativeHost : IDisposable
     /// <summary>
     /// Unload an assembly from the host
     /// </summary>
-    /// <param name="assemblyHandle">Assembly handle</param>
-    /// <exception cref="ArgumentException">Invalid assembly handle</exception>
-    /// <exception cref="InvalidOperationException">Assembly not found or other error</exception>
-    internal void UnloadAssembly(IntPtr assemblyHandle)
+    internal void Unload(Assembly assembly)
     {
-        if (assemblyHandle == IntPtr.Zero)
+        ThrowIfDisposed();
+
+        if (assembly == null)
         {
-            throw new ArgumentException("Assembly handle cannot be zero", nameof(assemblyHandle));
+            throw new ArgumentNullException(nameof(assembly));
         }
 
-        if (!_assemblies.ContainsKey(assemblyHandle))
+        if (!_assemblies.ContainsKey(assembly.Handle))
         {
-            throw new InvalidOperationException($"Assembly not found: {assemblyHandle}");
+            throw new ArgumentException("Assembly was not loaded by this host instance", nameof(assembly));
         }
 
-        var result = NativeMethods.UnloadAssembly(_handle, assemblyHandle);
-        if (result < 0)
+        var status = NativeMethods.Unload(_handle, assembly.Handle);
+        if (status != NativeHostStatus.Success)
         {
-            ThrowForError(result, $"Failed to unload assembly: {assemblyHandle}");
+            ThrowForStatus(status, $"Failed to unload assembly: {assembly.AssemblyPath}");
         }
 
-        _assemblies.Remove(assemblyHandle);
+        _assemblies.Remove(assembly.Handle);
     }
 
     /// <summary>
-    /// Get a function pointer to a specific method from a loaded assembly
+    /// Get a function pointer to a specific method
     /// </summary>
-    /// <typeparam name="T">Delegate type</typeparam>
-    /// <param name="assemblyHandle">Assembly handle</param>
-    /// <param name="assemblyPath">Assembly path</param>
-    /// <param name="typeName">Fully qualified name of the type containing the method</param>
-    /// <param name="methodName">Name of the method to get a pointer to</param>
-    /// <returns>Function delegate</returns>
     internal T GetFunction<T>(IntPtr assemblyHandle, string typeName, string methodName) where T : Delegate
     {
-        if (assemblyHandle == IntPtr.Zero)
-        {
-            throw new ArgumentException("Assembly handle cannot be zero", nameof(assemblyHandle));
-        }
+        ThrowIfDisposed();
 
         if (!_assemblies.ContainsKey(assemblyHandle))
         {
-            throw new InvalidOperationException($"Assembly not found: {assemblyHandle}");
+            throw new ArgumentException("Assembly handle is not valid", nameof(assemblyHandle));
         }
 
         if (string.IsNullOrEmpty(typeName))
+        {
             throw new ArgumentException("Type name cannot be null or empty", nameof(typeName));
-        if (string.IsNullOrEmpty(methodName))
-            throw new ArgumentException("Method name cannot be null or empty", nameof(methodName));
+        }
 
-        var result = NativeMethods.GetFunctionPointer(
+        if (string.IsNullOrEmpty(methodName))
+        {
+            throw new ArgumentException("Method name cannot be null or empty", nameof(methodName));
+        }
+
+        var status = NativeMethods.GetFunctionPointer(
             _handle,
             assemblyHandle,
             typeName,
             methodName,
             out var functionPtr);
 
-        if (result < 0)
+        if (status != NativeHostStatus.Success)
         {
-            ThrowForError(result, $"{typeName}.{methodName}");
+            ThrowForStatus(status, $"Failed to get function pointer for {typeName}.{methodName}");
         }
 
         return Marshal.GetDelegateForFunctionPointer<T>(functionPtr);
     }
 
-    protected virtual void Dispose(bool disposing)
+    public void Dispose()
     {
         if (!_isDisposed)
         {
-            if (disposing)
+            foreach (var assembly in _assemblies.Values.ToList())
             {
-                foreach (var assembly in _assemblies.Values.ToList())
-                {
-                    assembly.Dispose();
-                }
-                _assemblies.Clear();
+                assembly.Dispose();
             }
+            _assemblies.Clear();
 
             if (_handle != IntPtr.Zero)
             {
                 NativeMethods.Destroy(_handle);
-                _handle = IntPtr.Zero;
             }
 
             _isDisposed = true;
         }
     }
 
-    public void Dispose()
+    private void ThrowIfDisposed()
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+        if (_isDisposed)
+        {
+            throw new ObjectDisposedException(nameof(NativeHost));
+        }
     }
 
-    private static void ThrowForError(int errorCode, string context)
+    private static void ThrowForStatus(NativeHostStatus status, string message)
     {
-        switch (errorCode)
+        switch (status)
         {
-            case NativeMethods.ErrorHostNotFound:
-                throw new InvalidOperationException($"Host not found: {context}");
-            case NativeMethods.ErrorHostAlreadyExists:
-                throw new InvalidOperationException($"Host already exists: {context}");
-            case NativeMethods.ErrorAssemblyNotFound:
-                throw new InvalidOperationException($"Assembly not found: {context}");
-            case NativeMethods.ErrorAssemblyNotInitialized:
-                throw new InvalidOperationException($"Assembly not initialized: {context}");
-            case NativeMethods.ErrorRuntimeInit:
-                throw new TypeInitializationException($"Runtime initialization failed: {context}", null);
-            case NativeMethods.ErrorHostfxrNotFound:
-                throw new DllNotFoundException($"hostfxr not found: {context}");
-            case NativeMethods.ErrorAssemblyLoad:
-                throw new BadImageFormatException($"Failed to load assembly: {context}");
-            case NativeMethods.ErrorTypeLoad:
-                throw new TypeLoadException($"Failed to load type: {context}");
-            case NativeMethods.ErrorMethodLoad:
-                throw new MissingMethodException($"Failed to load method: {context}");
-            case NativeMethods.ErrorInvalidArg:
-                throw new ArgumentException($"Invalid argument: {context}");
+            case NativeHostStatus.Success:
+                return;
+            case NativeHostStatus.ErrorHostNotFound:
+            case NativeHostStatus.ErrorHostAlreadyExists:
+            case NativeHostStatus.ErrorAssemblyNotFound:
+            case NativeHostStatus.ErrorAssemblyNotInitialized:
+                throw new InvalidOperationException(message);
+            case NativeHostStatus.ErrorRuntimeInit:
+                throw new TypeInitializationException(typeof(NativeHost).FullName, new InvalidOperationException(message));
+            case NativeHostStatus.ErrorHostfxrNotFound:
+                throw new DllNotFoundException(message);
+            case NativeHostStatus.ErrorDelegateNotFound:
+                throw new MissingMethodException(message);
+            case NativeHostStatus.ErrorAssemblyLoad:
+                throw new BadImageFormatException(message);
+            case NativeHostStatus.ErrorTypeLoad:
+                throw new TypeLoadException(message);
+            case NativeHostStatus.ErrorMethodLoad:
+                throw new MissingMethodException(message);
+            case NativeHostStatus.ErrorInvalidArg:
+                throw new ArgumentException(message);
             default:
-                throw new InvalidOperationException($"Unknown error {errorCode}: {context}");
+                throw new InvalidOperationException($"Unknown error {status}: {message}");
         }
     }
 }
 
 /// <summary>
-/// Represents a loaded assembly instance, corresponding to the native Assembly class
+/// Represents a loaded assembly instance
 /// </summary>
-public class Assembly : IDisposable
+public sealed class Assembly : IDisposable
 {
     private readonly NativeHost _host;
-    private readonly IntPtr _handle;
-    private readonly string _assemblyPath;
     private readonly Dictionary<string, Delegate> _cachedDelegates;
     private bool _isDisposed;
+
+    public IntPtr Handle { get; }
+    public string AssemblyPath { get; }
 
     internal Assembly(NativeHost host, IntPtr handle, string assemblyPath)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
-        _handle = handle;
-        _assemblyPath = assemblyPath;
+        Handle = handle;
+        AssemblyPath = assemblyPath;
         _cachedDelegates = new Dictionary<string, Delegate>();
     }
 
     /// <summary>
-    /// Get the assembly handle
-    /// </summary>
-    public IntPtr Handle => _handle;
-
-    /// <summary>
-    /// Get the assembly path
-    /// </summary>
-    public string AssemblyPath => _assemblyPath;
-
-    /// <summary>
     /// Get a function pointer to a specific method
     /// </summary>
-    /// <typeparam name="T">Delegate type</typeparam>
-    /// <param name="typeName">Fully qualified name of the type containing the method</param>
-    /// <param name="methodName">Name of the method to get a pointer to</param>
-    /// <returns>Function delegate</returns>
     public T GetFunction<T>(string typeName, string methodName) where T : Delegate
     {
         ThrowIfDisposed();
 
-        var key = $"{_assemblyPath}:{typeName}.{methodName}";
+        var key = $"{AssemblyPath}:{typeName}.{methodName}";
         if (_cachedDelegates.TryGetValue(key, out var cachedDelegate))
         {
             return (T)cachedDelegate;
         }
 
-        var function = _host.GetFunction<T>(_handle, typeName, methodName);
+        var function = _host.GetFunction<T>(Handle, typeName, methodName);
         _cachedDelegates[key] = function;
         return function;
     }
@@ -244,23 +220,14 @@ public class Assembly : IDisposable
         _cachedDelegates.Clear();
     }
 
-    protected virtual void Dispose(bool disposing)
+    public void Dispose()
     {
         if (!_isDisposed)
         {
-            if (disposing)
-            {
-                _cachedDelegates.Clear();
-                _host.UnloadAssembly(_handle);
-            }
+            _cachedDelegates.Clear();
+            _host.Unload(this);
             _isDisposed = true;
         }
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
     }
 
     private void ThrowIfDisposed()

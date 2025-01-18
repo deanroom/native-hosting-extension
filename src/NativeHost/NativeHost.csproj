@@ -5,6 +5,5 @@
     <Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <IlcInvariantGlobalization>true</IlcInvariantGlobalization>
   </PropertyGroup>
 </Project> 
