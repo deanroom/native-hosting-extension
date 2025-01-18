@@ -130,7 +130,3 @@ Set-Location $DEMO_OUTPUT
 Set-Location $ROOT_DIR
 
 Write-Host "Build completed successfully!"
-Write-Host "All outputs can be found in: build/$OUTPUT_DIR"
-Write-Host ""
-Write-Host "Directory structure:"
-Get-ChildItem (Join-Path "build" $OUTPUT_DIR) | Format-Table Name, Length, LastWriteTime 

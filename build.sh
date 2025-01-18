@@ -98,7 +98,3 @@ cd build/bin
 cd "$ROOT_DIR"
 
 echo "Build completed successfully!"
-echo "All outputs can be found in: build/$OUTPUT_DIR"
-echo ""
-echo "Directory structure:"
-ls -la "build/$OUTPUT_DIR" 

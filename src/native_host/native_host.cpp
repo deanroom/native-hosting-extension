@@ -1,11 +1,9 @@
 #ifdef _WIN32
 #include <Windows.h>
-#define PLATFORM_WINDOWS 1
 #define MAX_PATH_LENGTH MAX_PATH
 #else
 #include <dlfcn.h>
 #include <limits.h>
-#define PLATFORM_UNIX 1
 #define MAX_PATH_LENGTH PATH_MAX
 #endif
 
@@ -14,409 +12,529 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <sstream>
 #include <nethost.h>
 #include <coreclr_delegates.h>
 #include <hostfxr.h>
-#include <string>
-#include <locale>
-#include <codecvt>
 
-#ifdef PLATFORM_WINDOWS
+#ifdef _WIN32
 using char_t = wchar_t;
-using LibraryHandle = HMODULE;
+using lib_handle = HMODULE;
 #else
 using char_t = char;
-using LibraryHandle = void *;
+using lib_handle = void *;
 #endif
 
-// Platform-specific utilities
-namespace platform
+namespace
 {
-    inline std::basic_string<char_t> to_char_t(const char *str)
+    // Enhanced error handling and logging
+    class Logger
     {
-#ifdef PLATFORM_WINDOWS
-        std::wstring wstr = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(str);
-        return std::basic_string<char_t>(wstr.begin(), wstr.end());
+    public:
+        static void Error(const std::string &message)
+        {
+            std::cerr << "ERROR: " << message << std::endl;
+        }
+
+        static void Error(const std::string &message, int error_code)
+        {
+            std::stringstream ss;
+            ss << message << " (error code: " << error_code << ")";
+            Error(ss.str());
+        }
+
+        static void Info(const std::string &message)
+        {
+#ifdef DEBUG
+            std::cout << "INFO: " << message << std::endl;
+#endif
+        }
+    };
+
+    // .NET error code mapping
+    namespace DotNetErrors
+    {
+        constexpr int FILE_NOT_FOUND = -2146233079;
+        constexpr int TYPE_LOAD = -2146233054;
+        constexpr int MISSING_METHOD = -2146233069;
+
+        NativeHostStatus MapError(int error_code)
+        {
+            switch (error_code)
+            {
+            case FILE_NOT_FOUND:
+                return NativeHostStatus::ERROR_ASSEMBLY_LOAD;
+            case TYPE_LOAD:
+                return NativeHostStatus::ERROR_TYPE_LOAD;
+            case MISSING_METHOD:
+                return NativeHostStatus::ERROR_METHOD_LOAD;
+            default:
+                return NativeHostStatus::ERROR_METHOD_LOAD;
+            }
+        }
+    }
+
+    // RAII wrapper for library handles
+    class HostFxrLibrary
+    {
+        lib_handle handle_;
+
+    public:
+        explicit HostFxrLibrary(const char_t *path) : handle_(nullptr)
+        {
+            handle_ = load_library(path);
+            if (handle_)
+            {
+                Logger::Info("Loaded library: " + std::string(path));
+            }
+        }
+
+        ~HostFxrLibrary()
+        {
+            if (handle_)
+            {
+                free_library(handle_);
+                Logger::Info("Unloaded library");
+            }
+        }
+
+        lib_handle get() const { return handle_; }
+        operator bool() const { return handle_ != nullptr; }
+    };
+
+    // Platform utilities with error handling
+    lib_handle load_library(const char_t *path)
+    {
+#ifdef _WIN32
+        lib_handle handle = LoadLibraryW(path);
+        if (!handle)
+        {
+            Logger::Error("LoadLibrary failed", GetLastError());
+        }
+        return handle;
 #else
-        return std::basic_string<char_t>(str);
+        lib_handle handle = dlopen(path, RTLD_LAZY);
+        if (!handle)
+        {
+            Logger::Error("dlopen failed", errno);
+        }
+        return handle;
 #endif
     }
 
-    inline LibraryHandle load_library(const char_t *path)
+    void *get_function(lib_handle lib, const char *name)
     {
-#ifdef PLATFORM_WINDOWS
-        return LoadLibraryW(path);
+        void *fn = nullptr;
+#ifdef _WIN32
+        fn = GetProcAddress(lib, name);
+        if (!fn)
+        {
+            Logger::Error("GetProcAddress failed for " + std::string(name), GetLastError());
+        }
 #else
-        std::string narrow_path(path);
-        return dlopen(narrow_path.c_str(), RTLD_LAZY);
+        fn = dlsym(lib, name);
+        if (!fn)
+        {
+            Logger::Error("dlsym failed for " + std::string(name));
+        }
+#endif
+        return fn;
+    }
+
+    void free_library(lib_handle lib)
+    {
+#ifdef _WIN32
+        if (!FreeLibrary(lib))
+        {
+            Logger::Error("FreeLibrary failed", GetLastError());
+        }
+#else
+        if (dlclose(lib) != 0)
+        {
+            Logger::Error("dlclose failed", errno);
+        }
 #endif
     }
 
-    inline void *get_function(LibraryHandle lib, const char *name)
+    std::basic_string<char_t> to_native_path(const char *path)
     {
-#ifdef PLATFORM_WINDOWS
-        return GetProcAddress(lib, name);
+#ifdef _WIN32
+        int size = MultiByteToWideChar(CP_UTF8, 0, path, -1, nullptr, 0);
+        if (size == 0)
+        {
+            Logger::Error("MultiByteToWideChar failed", GetLastError());
+            return std::basic_string<char_t>();
+        }
+        std::wstring result(size - 1, 0);
+        if (MultiByteToWideChar(CP_UTF8, 0, path, -1, &result[0], size) == 0)
+        {
+            Logger::Error("MultiByteToWideChar failed", GetLastError());
+            return std::basic_string<char_t>();
+        }
+        return result;
 #else
-        return dlsym(lib, name);
+        return path;
 #endif
     }
 
-    inline void free_library(LibraryHandle lib)
+    // Enhanced runtime management
+    class Runtime
     {
-#ifdef PLATFORM_WINDOWS
-        FreeLibrary(lib);
-#else
-        dlclose(lib);
-#endif
-    }
-}
+        bool initialized_ = false;
+        load_assembly_and_get_function_pointer_fn load_assembly_fn_ = nullptr;
+        hostfxr_close_fn close_fn_ = nullptr;
+        std::unique_ptr<HostFxrLibrary> hostfxr_lib_;
+        static constexpr const char *config_path = "init.runtimeconfig.json";
 
-// Runtime class to manage the .NET runtime initialization
-class Runtime
-{
-public:
-    static Runtime &instance()
-    {
-        static Runtime instance;
-        return instance;
-    }
+        bool load_hostfxr()
+        {
+            char_t hostfxr_path[MAX_PATH_LENGTH];
+            size_t buffer_size = sizeof(hostfxr_path) / sizeof(char_t);
 
-    bool initialize()
-    {
-        if (is_initialized_)
+            int rc = get_hostfxr_path(hostfxr_path, &buffer_size, nullptr);
+            if (rc != 0)
+            {
+                Logger::Error("Failed to get hostfxr path", rc);
+                return false;
+            }
+
+            hostfxr_lib_ = std::make_unique<HostFxrLibrary>(hostfxr_path);
+            if (!hostfxr_lib_ || !*hostfxr_lib_)
+            {
+                Logger::Error("Failed to load hostfxr library");
+                return false;
+            }
+
+            auto init_fn = (hostfxr_initialize_for_runtime_config_fn)
+                get_function(hostfxr_lib_->get(), "hostfxr_initialize_for_runtime_config");
+            auto get_delegate_fn = (hostfxr_get_runtime_delegate_fn)
+                get_function(hostfxr_lib_->get(), "hostfxr_get_runtime_delegate");
+            close_fn_ = (hostfxr_close_fn)
+                get_function(hostfxr_lib_->get(), "hostfxr_close");
+
+            if (!init_fn || !get_delegate_fn || !close_fn_)
+            {
+                Logger::Error("Failed to get required functions");
+                return false;
+            }
+
+            hostfxr_handle ctx = nullptr;
+            rc = init_fn(to_native_path(config_path).c_str(), nullptr, &ctx);
+
+            // rc返回值为1时，也是 hostfxr已经初始化，只是使用了相同配置，
+            // 但是当前实现只有一个 runtime 单例，所以这里不会出现此种情形。
+            if (rc != 0)
+            {
+                Logger::Error("Failed to initialize runtime", rc);
+                return false;
+            }
+
+            rc = get_delegate_fn(
+                ctx,
+                hdt_load_assembly_and_get_function_pointer,
+                (void **)&load_assembly_fn_);
+
+            if (rc != 0 || !load_assembly_fn_)
+            {
+                close_fn_(ctx);
+                Logger::Error("Failed to get load assembly function", rc);
+                return false;
+            }
+
+            close_fn_(ctx);
+            Logger::Info("Runtime initialized successfully");
             return true;
-
-        // Get hostfxr path
-        char_t hostfxr_path[MAX_PATH_LENGTH];
-        size_t buffer_size = sizeof(hostfxr_path) / sizeof(char_t);
-
-        int rc = get_hostfxr_path(hostfxr_path, &buffer_size, nullptr);
-        if (rc != 0)
-        {
-            std::cerr << "Failed to get hostfxr path, error code: " << rc << std::endl;
-            return false;
         }
 
-        // Load hostfxr library
-        LibraryHandle lib = platform::load_library(hostfxr_path);
-        if (lib == nullptr)
+    public:
+        static Runtime &instance()
         {
-            std::cerr << "Failed to load hostfxr" << std::endl;
-            return false;
+            static Runtime runtime;
+            return runtime;
         }
 
-        // Get required functions
-        auto init_fptr = (hostfxr_initialize_for_runtime_config_fn)
-            platform::get_function(lib, "hostfxr_initialize_for_runtime_config");
-
-        auto get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)
-            platform::get_function(lib, "hostfxr_get_runtime_delegate");
-
-        hostfxr_close_fn_ = (hostfxr_close_fn)
-            platform::get_function(lib, "hostfxr_close");
-
-        if (!init_fptr || !get_delegate_fptr || !hostfxr_close_fn_)
+        bool initialize()
         {
-            std::cerr << "Failed to get hostfxr function pointers" << std::endl;
-            return false;
+            if (initialized_)
+                return true;
+            if (!load_hostfxr())
+                return false;
+            initialized_ = true;
+            return true;
         }
 
-        hostfxr_handle cxt = nullptr;
-        auto config_path = platform::to_char_t(DEFAULT_CONFIG_PATH);
-        rc = init_fptr(config_path.c_str(), nullptr, &cxt);
+        load_assembly_and_get_function_pointer_fn get_load_fn() const { return load_assembly_fn_; }
+        bool is_initialized() const { return initialized_; }
+    };
 
-        if (rc != 0 && rc != 1)
-        {
-            hostfxr_close_fn_(cxt);
-            std::cerr << "Failed to initialize runtime. Error code: " << rc << std::endl;
-            return false;
-        }
-
-        rc = get_delegate_fptr(
-            cxt,
-            hdt_load_assembly_and_get_function_pointer,
-            (void **)&load_assembly_fn_);
-
-        if (rc != 0 || load_assembly_fn_ == nullptr)
-        {
-            hostfxr_close_fn_(cxt);
-            std::cerr << "Failed to get load_assembly_and_get_function_ptr. Error code: " << rc << std::endl;
-            return false;
-        }
-
-        is_initialized_ = true;
-        hostfxr_close_fn_(cxt);
-        return true;
-    }
-
-    load_assembly_and_get_function_pointer_fn get_load_assembly_fn() const
+    // Enhanced assembly management
+    class Assembly
     {
-        return load_assembly_fn_;
+        std::string path_;
+        bool loaded_ = false;
+
+    public:
+        explicit Assembly(const char *path) : path_(path)
+        {
+            Logger::Info("Created assembly for path: " + path_);
+        }
+
+        ~Assembly()
+        {
+            Logger::Info("Destroying assembly: " + path_);
+        }
+
+        NativeHostStatus get_function(const char *type_name, const char *method_name, void **fn_ptr)
+        {
+            if (!Runtime::instance().is_initialized())
+            {
+                Logger::Error("Runtime not initialized");
+                return NativeHostStatus::ERROR_RUNTIME_INIT;
+            }
+
+            auto load_fn = Runtime::instance().get_load_fn();
+            *fn_ptr = nullptr;
+
+            Logger::Info("Loading type: " + std::string(type_name));
+            Logger::Info("Loading method: " + std::string(method_name));
+
+            int rc = load_fn(
+                to_native_path(path_.c_str()).c_str(),
+                to_native_path(type_name).c_str(),
+                to_native_path(method_name).c_str(),
+                UNMANAGEDCALLERSONLY_METHOD,
+                nullptr,
+                fn_ptr);
+
+            if (rc != 0 || !*fn_ptr)
+            {
+                Logger::Error("Failed to load assembly and get function pointer", rc);
+                return DotNetErrors::MapError(rc);
+            }
+
+            loaded_ = true;
+            Logger::Info("Successfully loaded function");
+            return NativeHostStatus::SUCCESS;
+        }
+
+        bool is_loaded() const { return loaded_; }
+        const std::string &path() const { return path_; }
+    };
+
+    // Enhanced host management
+    class Host
+    {
+        std::unordered_map<native_assembly_handle_t, std::unique_ptr<Assembly>> assemblies_;
+        bool initialized_ = false;
+
+    public:
+        NativeHostStatus initialize_runtime()
+        {
+            if (initialized_)
+            {
+                Logger::Info("Runtime already initialized");
+                return NativeHostStatus::SUCCESS;
+            }
+
+            if (!Runtime::instance().initialize())
+            {
+                Logger::Error("Failed to initialize runtime");
+                return NativeHostStatus::ERROR_RUNTIME_INIT;
+            }
+
+            initialized_ = true;
+            Logger::Info("Host runtime initialized successfully");
+            return NativeHostStatus::SUCCESS;
+        }
+
+        NativeHostStatus load_assembly(const char *path, native_assembly_handle_t *handle)
+        {
+            if (!path || !handle)
+            {
+                Logger::Error("Invalid arguments for load_assembly");
+                return NativeHostStatus::ERROR_INVALID_ARG;
+            }
+
+            auto assembly = std::make_unique<Assembly>(path);
+            *handle = assembly.get();
+            assemblies_[*handle] = std::move(assembly);
+            Logger::Info("Assembly loaded successfully: " + std::string(path));
+            return NativeHostStatus::SUCCESS;
+        }
+
+        NativeHostStatus unload_assembly(native_assembly_handle_t handle)
+        {
+            if (!handle)
+            {
+                Logger::Error("Invalid handle for unload_assembly");
+                return NativeHostStatus::ERROR_INVALID_ARG;
+            }
+
+            auto count = assemblies_.erase(handle);
+            if (count == 0)
+            {
+                Logger::Error("Assembly not found for unload");
+                return NativeHostStatus::ERROR_ASSEMBLY_NOT_FOUND;
+            }
+
+            Logger::Info("Assembly unloaded successfully");
+            return NativeHostStatus::SUCCESS;
+        }
+
+        NativeHostStatus get_function_pointer(
+            native_assembly_handle_t handle,
+            const char *type_name,
+            const char *method_name,
+            void **fn_ptr)
+        {
+            if (!handle || !type_name || !method_name || !fn_ptr)
+            {
+                Logger::Error("Invalid arguments for get_function_pointer");
+                return NativeHostStatus::ERROR_INVALID_ARG;
+            }
+
+            auto it = assemblies_.find(handle);
+            if (it == assemblies_.end())
+            {
+                Logger::Error("Assembly not found for get_function_pointer");
+                return NativeHostStatus::ERROR_ASSEMBLY_NOT_FOUND;
+            }
+
+            return it->second->get_function(type_name, method_name, fn_ptr);
+        }
+
+        size_t assembly_count() const { return assemblies_.size(); }
+        bool is_initialized() const { return initialized_; }
+    };
+
+    // Global state with enhanced management
+    std::unique_ptr<Host> g_host;
+    std::mutex g_mutex;
+}
+
+// Enhanced API implementations
+extern "C"
+{
+    NATIVE_HOST_API NativeHostStatus create(native_host_handle_t *out_handle)
+    {
+        if (!out_handle)
+        {
+            Logger::Error("Invalid out_handle for create");
+            return NativeHostStatus::ERROR_INVALID_ARG;
+        }
+
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (g_host)
+        {
+            Logger::Error("Host already exists");
+            return NativeHostStatus::ERROR_HOST_ALREADY_EXISTS;
+        }
+
+        g_host = std::make_unique<Host>();
+        *out_handle = g_host.get();
+        Logger::Info("Host created successfully");
+        return NativeHostStatus::SUCCESS;
     }
 
-    bool is_initialized() const { return is_initialized_; }
+    NATIVE_HOST_API NativeHostStatus destroy(native_host_handle_t handle)
+    {
+        if (!handle)
+        {
+            Logger::Error("Invalid handle for destroy");
+            return NativeHostStatus::ERROR_INVALID_ARG;
+        }
 
-private:
-    Runtime() : is_initialized_(false), load_assembly_fn_(nullptr), hostfxr_close_fn_(nullptr) {}
-    ~Runtime() = default;
-    Runtime(const Runtime &) = delete;
-    Runtime &operator=(const Runtime &) = delete;
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (!g_host || handle != g_host.get())
+        {
+            Logger::Error("Host not found for destroy");
+            return NativeHostStatus::ERROR_HOST_NOT_FOUND;
+        }
 
-    bool is_initialized_;
-    load_assembly_and_get_function_pointer_fn load_assembly_fn_;
-    hostfxr_close_fn hostfxr_close_fn_;
-    const char *const DEFAULT_CONFIG_PATH = "init.runtimeconfig.json";
-};
+        g_host.reset();
+        Logger::Info("Host destroyed successfully");
+        return NativeHostStatus::SUCCESS;
+    }
 
-// Assembly class representing a loaded .NET assembly
-class Assembly
-{
-public:
-    Assembly(const char *assembly_path) : assembly_path_(assembly_path) {}
-    ~Assembly() = default;
+    NATIVE_HOST_API NativeHostStatus initialize(native_host_handle_t handle)
+    {
+        if (!handle)
+        {
+            Logger::Error("Invalid handle for initialize");
+            return NativeHostStatus::ERROR_INVALID_ARG;
+        }
 
-    NativeHostStatus get_function_pointer(
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (!g_host || handle != g_host.get())
+        {
+            Logger::Error("Host not found for initialize");
+            return NativeHostStatus::ERROR_HOST_NOT_FOUND;
+        }
+
+        return g_host->initialize_runtime();
+    }
+
+    NATIVE_HOST_API NativeHostStatus load(
+        native_host_handle_t handle,
+        const char *path,
+        native_assembly_handle_t *out_handle)
+    {
+        if (!handle)
+        {
+            Logger::Error("Invalid handle for load");
+            return NativeHostStatus::ERROR_INVALID_ARG;
+        }
+
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (!g_host || handle != g_host.get())
+        {
+            Logger::Error("Host not found for load");
+            return NativeHostStatus::ERROR_HOST_NOT_FOUND;
+        }
+
+        return g_host->load_assembly(path, out_handle);
+    }
+
+    NATIVE_HOST_API NativeHostStatus unload(
+        native_host_handle_t handle,
+        native_assembly_handle_t assembly)
+    {
+        if (!handle)
+        {
+            Logger::Error("Invalid handle for unload");
+            return NativeHostStatus::ERROR_INVALID_ARG;
+        }
+
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (!g_host || handle != g_host.get())
+        {
+            Logger::Error("Host not found for unload");
+            return NativeHostStatus::ERROR_HOST_NOT_FOUND;
+        }
+
+        return g_host->unload_assembly(assembly);
+    }
+
+    NATIVE_HOST_API NativeHostStatus get_function_pointer(
+        native_host_handle_t handle,
+        native_assembly_handle_t assembly,
         const char *type_name,
         const char *method_name,
-        void **out_function_pointer)
+        void **fn_ptr)
     {
-        if (!Runtime::instance().is_initialized())
+        if (!handle)
         {
-            std::cerr << "Runtime not initialized" << std::endl;
-            return ERROR_RUNTIME_INIT;
+            Logger::Error("Invalid handle for get_function_pointer");
+            return NativeHostStatus::ERROR_INVALID_ARG;
         }
 
-        auto load_assembly_fn = Runtime::instance().get_load_assembly_fn();
-        *out_function_pointer = nullptr;
-
-        auto assembly_path_t = platform::to_char_t(assembly_path_.c_str());
-        auto type_name_t = platform::to_char_t(type_name);
-        auto method_name_t = platform::to_char_t(method_name);
-        std::cout << "type_name_t: " << type_name_t << std::endl;
-        std::cout << "method_name_t: " << method_name_t << std::endl;
-
-        int rc = load_assembly_fn(
-            assembly_path_t.c_str(),
-            type_name_t.c_str(),
-            method_name_t.c_str(),
-            UNMANAGEDCALLERSONLY_METHOD,
-            nullptr,
-            out_function_pointer);
-
-        if (rc != 0 || *out_function_pointer == nullptr)
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (!g_host || handle != g_host.get())
         {
-            std::cerr << "Failed to load assembly and get function pointer, errcode:" << rc << std::endl;
-
-            // Map .NET error codes to our error codes
-            constexpr int COR_E_FILENOTFOUND = -2146233079;
-            constexpr int COR_E_TYPELOAD = -2146233054;
-            constexpr int COR_E_MISSINGMETHOD = -2146233069;
-
-            if (rc == COR_E_FILENOTFOUND)
-                return ERROR_ASSEMBLY_LOAD;
-            else if (rc == COR_E_TYPELOAD)
-                return ERROR_TYPE_LOAD;
-            else if (rc == COR_E_MISSINGMETHOD)
-                return ERROR_METHOD_LOAD;
-
-            return ERROR_METHOD_LOAD;
+            Logger::Error("Host not found for get_function_pointer");
+            return NativeHostStatus::ERROR_HOST_NOT_FOUND;
         }
 
-        return SUCCESS;
+        return g_host->get_function_pointer(assembly, type_name, method_name, fn_ptr);
     }
-
-    const std::string &get_assembly_path() const { return assembly_path_; }
-
-private:
-    std::string assembly_path_;
-};
-
-// Host class managing assemblies
-class Host
-{
-public:
-    Host() = default;
-    ~Host() = default;
-
-    NativeHostStatus initialize_runtime()
-    {
-        if (!Runtime::instance().initialize())
-        {
-            return ERROR_RUNTIME_INIT;
-        }
-        return SUCCESS;
-    }
-
-    NativeHostStatus load_assembly(const char *assembly_path, native_assembly_handle_t *out_assembly_handle)
-    {
-        if (!assembly_path || !out_assembly_handle)
-        {
-            return ERROR_INVALID_ARG;
-        }
-
-        auto assembly = std::make_unique<Assembly>(assembly_path);
-        *out_assembly_handle = reinterpret_cast<native_assembly_handle_t>(assembly.get());
-        assemblies_[*out_assembly_handle] = std::move(assembly);
-        return SUCCESS;
-    }
-
-    NativeHostStatus unload_assembly(native_assembly_handle_t assembly_handle)
-    {
-        if (!assembly_handle)
-        {
-            return ERROR_INVALID_ARG;
-        }
-
-        if (assemblies_.erase(assembly_handle) == 0)
-        {
-            return ERROR_assembly_NOT_FOUND;
-        }
-
-        return SUCCESS;
-    }
-
-    NativeHostStatus get_function_pointer(
-        native_assembly_handle_t assembly_handle,
-        const char *type_name,
-        const char *method_name,
-        void **out_function_pointer)
-    {
-        if (!assembly_handle || !type_name || !method_name || !out_function_pointer)
-        {
-            return ERROR_INVALID_ARG;
-        }
-
-        auto it = assemblies_.find(assembly_handle);
-        if (it == assemblies_.end())
-        {
-            return ERROR_assembly_NOT_FOUND;
-        }
-
-        return it->second->get_function_pointer(
-            type_name,
-            method_name,
-            out_function_pointer);
-    }
-
-private:
-    std::unordered_map<native_assembly_handle_t, std::unique_ptr<Assembly>> assemblies_;
-};
-
-// Global instance management
-static std::unique_ptr<Host> g_host;
-static std::mutex g_mutex;
-
-// Clean C exports
-NATIVE_HOST_API NativeHostStatus create(native_host_handle_t *out_handle)
-{
-    if (!out_handle)
-    {
-        return ERROR_INVALID_ARG;
-    }
-
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (g_host)
-    {
-        return ERROR_HOST_ALREADY_EXISTS;
-    }
-
-    g_host = std::make_unique<Host>();
-    *out_handle = reinterpret_cast<native_host_handle_t>(g_host.get());
-    return SUCCESS;
-}
-
-NATIVE_HOST_API NativeHostStatus destroy(native_host_handle_t handle)
-{
-    if (!handle)
-    {
-        return ERROR_INVALID_ARG;
-    }
-
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (!g_host || handle != reinterpret_cast<native_host_handle_t>(g_host.get()))
-    {
-        return ERROR_HOST_NOT_FOUND;
-    }
-
-    g_host.reset();
-    return SUCCESS;
-}
-
-NATIVE_HOST_API NativeHostStatus initialize(
-    native_host_handle_t host_handle)
-{
-    if (!host_handle)
-    {
-        return ERROR_INVALID_ARG;
-    }
-
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (!g_host || host_handle != reinterpret_cast<native_host_handle_t>(g_host.get()))
-    {
-        return ERROR_HOST_NOT_FOUND;
-    }
-
-    return g_host->initialize_runtime();
-}
-
-NATIVE_HOST_API NativeHostStatus load(
-    native_host_handle_t host_handle,
-    const char *assembly_path,
-    native_assembly_handle_t *out_assembly_handle)
-{
-    if (!host_handle)
-    {
-        return ERROR_INVALID_ARG;
-    }
-
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (!g_host || host_handle != reinterpret_cast<native_host_handle_t>(g_host.get()))
-    {
-        return ERROR_HOST_NOT_FOUND;
-    }
-
-    return g_host->load_assembly(assembly_path, out_assembly_handle);
-}
-
-NATIVE_HOST_API NativeHostStatus unload(
-    native_host_handle_t host_handle,
-    native_assembly_handle_t assembly_handle)
-{
-    if (!host_handle)
-    {
-        return ERROR_INVALID_ARG;
-    }
-
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (!g_host || host_handle != reinterpret_cast<native_host_handle_t>(g_host.get()))
-    {
-        return ERROR_HOST_NOT_FOUND;
-    }
-
-    return g_host->unload_assembly(assembly_handle);
-}
-
-NATIVE_HOST_API NativeHostStatus get_function_pointer(
-    native_host_handle_t host_handle,
-    native_assembly_handle_t assembly_handle,
-    const char *type_name,
-    const char *method_name,
-    void **out_function_pointer)
-{
-    if (!host_handle)
-    {
-        return ERROR_INVALID_ARG;
-    }
-
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (!g_host || host_handle != reinterpret_cast<native_host_handle_t>(g_host.get()))
-    {
-        return ERROR_HOST_NOT_FOUND;
-    }
-
-    return g_host->get_function_pointer(
-        assembly_handle,
-        type_name,
-        method_name,
-        out_function_pointer);
 }

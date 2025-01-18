@@ -48,8 +48,8 @@ internal static partial class NativeMethods
     /// <summary>
     /// 初始化运行时
     /// </summary>
-    [DllImport(LibraryName, EntryPoint = "initialize_runtime", CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int InitializeRuntime(IntPtr hostHandle);
+    [DllImport(LibraryName, EntryPoint = "initialize", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int Initialize(IntPtr hostHandle);
 
     /// <summary>
     /// 加载插件到宿主中

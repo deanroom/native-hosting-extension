@@ -23,7 +23,7 @@ public class NativeHost : IDisposable
         }
 
         // Initialize runtime
-        result = NativeMethods.InitializeRuntime(_handle);
+        result = NativeMethods.Initialize(_handle);
         if (result < 0)
         {
             ThrowForError(result, "Failed to initialize runtime");
