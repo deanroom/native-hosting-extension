@@ -4,7 +4,7 @@ add_library(native_host SHARED
 
 # Copy init.runtimeconfig.json to bin directory
 file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/init.runtimeconfig.json"
-     DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+     DESTINATION "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin")
 
 target_include_directories(native_host
     PUBLIC
