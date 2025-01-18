@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
     googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG release-1.11.0
+    GIT_TAG release-1.12.1
 )
 FetchContent_MakeAvailable(googletest)
 
@@ -38,7 +38,7 @@ add_custom_command(
 
 # Set test properties
 set_target_properties(native_host_tests PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
 )
 
 # Link dependencies
@@ -65,7 +65,7 @@ endforeach()
 # Register tests with CTest
 include(GoogleTest)
 gtest_discover_tests(native_host_tests
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
     PROPERTIES
         LABELS "all;unit"
         TIMEOUT 60
@@ -75,7 +75,7 @@ gtest_discover_tests(native_host_tests
 
 # Set common test environment
 set(TEST_ENV
-    "PATH=${CMAKE_BINARY_DIR}/bin:$ENV{PATH}"
+    "PATH=${CMAKE_BINARY_DIR}/tests:$ENV{PATH}"
     "DOTNET_ROOT=${DOTNET_ROOT}"
 )
 
@@ -89,7 +89,7 @@ add_custom_target(run_all_tests
 add_test(
     NAME all_tests
     COMMAND native_host_tests
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
 )
 
 set_tests_properties(all_tests PROPERTIES ENVIRONMENT "${TEST_ENV}")
