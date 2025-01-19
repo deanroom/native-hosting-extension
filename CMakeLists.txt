@@ -80,8 +80,6 @@ endif()
 # Build .NET projects
 set(DOTNET_PROJECTS
     src/ManagedLibrary/ManagedLibrary.csproj
-    src/NativeHost/NativeHost.csproj
-    src/DemoApp/DemoApp.csproj
 )
 
 add_custom_target(build_managed ALL)
@@ -89,11 +87,25 @@ foreach(PROJECT ${DOTNET_PROJECTS})
     add_custom_command(
         TARGET build_managed
         POST_BUILD
-        COMMAND ${DOTNET_EXE} build ${CMAKE_SOURCE_DIR}/${PROJECT} -c $<CONFIG>
+        COMMAND ${DOTNET_EXE} publish ${CMAKE_SOURCE_DIR}/${PROJECT} 
+        -c $<CONFIG> 
+        -o ${CMAKE_BINARY_DIR}/$<CONFIG>/bin
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         COMMENT "Building ${PROJECT}"
     )
 endforeach()
+
+# Publish DemoApp to build directory
+add_custom_command(
+    TARGET build_managed
+    POST_BUILD
+    COMMAND ${DOTNET_EXE} publish ${CMAKE_SOURCE_DIR}/src/DemoApp/DemoApp.csproj 
+        -c $<CONFIG> 
+        -o ${CMAKE_BINARY_DIR}/$<CONFIG>/bin
+        -r ${HOST_ARCH}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Publishing DemoApp"
+)
 # Add subdirectories
 add_subdirectory(src/native_host)
 add_subdirectory(tests)

@@ -5,6 +5,7 @@ set -e
 BUILD_DIR="build"
 CLEAN=1
 RUN_TESTS=1
+RUN_DEMO=1  # Default to not running the demo app
 BUILD_TYPE="Debug"  # Default build type
 
 # Set default compilers
@@ -44,9 +45,13 @@ while [[ $# -gt 0 ]]; do
             RUN_TESTS=1
             shift
             ;;
+        --demo)
+            RUN_DEMO=1
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--debug|--release] [--clean] [--test]"
+            echo "Usage: $0 [--debug|--release] [--clean] [--test] [--demo]"
             exit 1
             ;;
     esac
@@ -84,6 +89,14 @@ if [ $RUN_TESTS -eq 1 ]; then
     cd $BUILD_DIR
     ctest --output-on-failure --build-config $BUILD_TYPE
     cd ..
+fi
+
+# Run DemoApp if requested and tests passed
+if [ $RUN_DEMO -eq 1 ]; then
+    echo "Running DemoApp..."
+    cd $BUILD_DIR/$BUILD_TYPE/bin
+    ./DemoApp
+    cd ../../..
 fi
 
 echo "=== $BUILD_TYPE build completed successfully! ==="

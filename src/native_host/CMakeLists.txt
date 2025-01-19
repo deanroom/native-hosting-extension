@@ -15,6 +15,8 @@ target_include_directories(native_host
 # Add compile definitions for all platforms
 target_compile_definitions(native_host PRIVATE 
     NATIVE_HOST_EXPORTS
+    $<$<CONFIG:Debug>:DEBUG>
+    $<$<CONFIG:Release>:RELEASE>
 )
 
 if(WIN32)

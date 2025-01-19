@@ -9,6 +9,7 @@ public class TestClass
     [UnmanagedCallersOnly]
     public static int ReturnConstant()
     {
+        Console.WriteLine("Returning constant");
         return 42;
     }
 

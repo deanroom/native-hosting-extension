@@ -1,3 +1,27 @@
+/**
+ * @file native_host.cpp
+ * @brief 本机加载 .NET 程序集的 Native Hosting 实现
+ *
+ * 本实现提供了基于 Native Hosting 的本机托管环境。
+ * 主要包含三个核心组件:
+ *
+ * 1. Host (单例)
+ *    - 提供线程安全的公共接口
+ *    - 负责 Runtime 的初始化
+ *    - 管理 Assembly 的生命周期
+ *
+ * 2. Runtime (单例)
+ *    - 负责 .NET 运行时的加载和初始化
+ *    - 管理 hostfxr 的生命周期
+ *    - 提供程序集加载的底层能力
+ *    - 确保运行时正确启动和关闭
+ *
+ * 3. Assembly
+ *    - 表示单个加载的程序集
+ *    - 提供方法查找和调用能力
+ *    - 管理程序集级别的资源
+ */
+
 #ifdef _WIN32
 #include <Windows.h>
 #define MAX_PATH_LENGTH MAX_PATH
@@ -21,6 +45,9 @@
 namespace
 {
 
+/**
+ * @brief 平台特定的字符类型和库句柄定义
+ */
 #ifdef _WIN32
     using char_t = wchar_t;
     using lib_handle = HMODULE;
@@ -29,6 +56,9 @@ namespace
     using lib_handle = void *;
 #endif
 
+    /**
+     * @brief 用于错误跟踪和调试的日志工具
+     */
     void log_error(const std::string &message)
     {
         std::cerr << message << std::endl;
@@ -36,7 +66,7 @@ namespace
 
     void log_error(const std::string &message, int error_code)
     {
-        std::cerr << message << " (error code: " << error_code << ")" << std::endl;
+        std::cerr << message << " (错误代码: " << error_code << ")" << std::endl;
     }
 
     void log_info(const std::string &message)
@@ -46,7 +76,11 @@ namespace
 #endif
     }
 
-    // Platform utilities with error handling
+    /**
+     * @brief 平台特定的库管理函数
+     *
+     * 这些函数抽象了Windows和Unix动态库加载机制之间的差异。
+     */
     lib_handle load_library(const char_t *path)
     {
 #ifdef _WIN32
@@ -100,6 +134,11 @@ namespace
 #endif
     }
 
+    /**
+     * @brief 平台特定路径的字符串转换工具
+     *
+     * 处理文件路径在UTF-8和平台特定字符串格式之间的转换。
+     */
     std::basic_string<char_t> to_native_path(const char *path)
     {
 #ifdef _WIN32
@@ -121,7 +160,12 @@ namespace
 #endif
     }
 
-    // .NET error code mapping
+    /**
+     * @brief .NET错误代码映射和分类
+     *
+     * 将.NET运行时错误代码映射到本机主机状态码，
+     * 实现跨接口边界的一致错误处理。
+     */
     namespace DotNetErrors
     {
         constexpr int FILE_NOT_FOUND = -2146233079;
@@ -144,7 +188,11 @@ namespace
         }
     }
 
-    // RAII wrapper for library handles
+    /**
+     * @brief .NET主机库的RAII包装器
+     *
+     * 确保.NET主机框架解析器库的正确加载和卸载。
+     */
     class HostFxrLibrary
     {
         lib_handle handle_;
@@ -172,7 +220,16 @@ namespace
         operator bool() const { return handle_ != nullptr; }
     };
 
-    // Enhanced runtime management
+    /**
+     * @brief .NET运行时管理
+     *
+     * 管理.NET运行时初始化并提供核心运行时功能的单例类。
+     *
+     * 主要职责：
+     * - 加载和初始化 .NET 运行时
+     * - 管理运行时配置
+     * - 提供程序集加载能力
+     */
     class Runtime
     {
         bool initialized_ = false;
@@ -216,7 +273,6 @@ namespace
             hostfxr_handle ctx = nullptr;
             rc = init_fn(to_native_path(config_path).c_str(), nullptr, &ctx);
 
-            log_info("hostfxr_initialize_for_runtime_config rc: " + std::to_string(rc));
             // rc返回值为1时，也是 hostfxr已经初始化，只是使用了相同配置，
             // 但是当前实现只有一个 runtime 单例，所以这里不会出现此种情形。
             if (rc != 0)
@@ -263,7 +319,16 @@ namespace
         bool is_initialized() const { return initialized_; }
     };
 
-    // Enhanced assembly management
+    /**
+     * @brief 程序集
+     *
+     * 处理单个.NET程序集的加载和管理。
+     *
+     * 主要功能：
+     * - 路径验证和存在性检查
+     * - 程序集加载和卸载
+     * - 方法解析和委托创建
+     */
     class Assembly
     {
         std::string path_;
@@ -300,9 +365,9 @@ namespace
 
             log_info("Loading type: " + std::string(type_name));
             log_info("Loading method: " + std::string(method_name));
-            
+
             // The runtime helper can be called multiple times for different assemblies/methods.
-            // The implementation caches loaded assemblies internally - loading the same assembly 
+            // The implementation caches loaded assemblies internally - loading the same assembly
             // multiple times will only load it once and reuse it.
             // However, components should avoid relying on this caching behavior and should not
             // maintain global state, as this can lead to ordering issues and side effects.
@@ -334,7 +399,14 @@ namespace
         const std::string &path() const { return path_; }
     };
 
-    // Enhanced host management
+    /**
+     * @brief 本机主机实现
+     *
+     * 本机托管接口的核心实现。管理.NET运行时和已加载程序集的生命周期。
+     *
+     * 设计模式：
+     * - 单例模式用于全局主机实例
+     */
     class Host
     {
         std::unordered_map<native_assembly_handle_t, std::unique_ptr<Assembly>> assemblies_;
@@ -433,12 +505,16 @@ namespace
         bool is_initialized() const { return initialized_; }
     };
 
-    // Global state with enhanced management
+    // 全局状态管理
     std::unique_ptr<Host> g_host;
     std::mutex g_mutex;
 }
 
-// Enhanced API implementations
+/**
+ * @brief 公共API实现
+ *
+ * C风格接口实现，包装C++实现。
+ */
 extern "C"
 {
     NATIVE_HOST_API NativeHostStatus native_host_create(native_host_handle_t *out_handle)
