@@ -29,46 +29,28 @@ internal static partial class NativeMethods
 {
     private const string LibraryName = "native_host";
 
-    [LibraryImport(LibraryName, EntryPoint = "create")]
+    [LibraryImport(LibraryName, EntryPoint = "native_host_create")]
     internal static partial NativeHostStatus Create(out IntPtr handle);
 
-    [LibraryImport(LibraryName, EntryPoint = "destroy")]
+    [LibraryImport(LibraryName, EntryPoint = "native_host_destroy")]
     internal static partial NativeHostStatus Destroy(IntPtr handle);
 
-    [LibraryImport(LibraryName, EntryPoint = "initialize")]
+    [LibraryImport(LibraryName, EntryPoint = "native_host_initialize")]
     internal static partial NativeHostStatus Initialize(IntPtr handle);
 
-    [LibraryImport(LibraryName, EntryPoint = "load", StringMarshalling = StringMarshalling.Utf8)]
+    [LibraryImport(LibraryName, EntryPoint = "native_host_load_assembly", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial NativeHostStatus Load(IntPtr handle,
         string assemblyPath,
         out IntPtr assemblyHandle);
 
-    [LibraryImport(LibraryName, EntryPoint = "unload")]
+    [LibraryImport(LibraryName, EntryPoint = "native_host_unload_assembly")]
     internal static partial NativeHostStatus Unload(IntPtr handle, IntPtr assemblyHandle);
 
-    [LibraryImport(LibraryName, EntryPoint = "get_function_pointer", StringMarshalling = StringMarshalling.Utf8)]
+    [LibraryImport(LibraryName, EntryPoint = "native_host_get_delegate", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial NativeHostStatus GetFunctionPointer(
         IntPtr handle,
         IntPtr assemblyHandle,
         string typeName,
         string methodName,
         out IntPtr functionPointer);
-
-    [LibraryImport(LibraryName, EntryPoint = "get_delegate", StringMarshalling = StringMarshalling.Utf8)]
-    internal static partial NativeHostStatus GetDelegate(
-        IntPtr handle,
-        IntPtr assemblyHandle,
-        string typeName,
-        string methodName,
-        out IntPtr delegatePointer);
-
-    [LibraryImport(LibraryName, EntryPoint = "invoke_method", StringMarshalling = StringMarshalling.Utf8)]
-    internal static partial NativeHostStatus InvokeMethod(
-        IntPtr handle,
-        IntPtr assemblyHandle,
-        string typeName,
-        string methodName,
-        IntPtr[] args,
-        int argCount,
-        out IntPtr result);
 }

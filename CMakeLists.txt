@@ -77,13 +77,6 @@ if(NOT EXISTS "${DOTNET_HOSTING_INCLUDE_PATH}/nethost.h")
     message(FATAL_ERROR "nethost.h not found at ${DOTNET_HOSTING_INCLUDE_PATH}")
 endif()
 
-# List available files for debugging
-message(STATUS "Files in native hosting directory:")
-file(GLOB HOSTING_FILES "${DOTNET_HOSTING_BASE}/*")
-foreach(FILE ${HOSTING_FILES})
-    message(STATUS "  ${FILE}")
-endforeach()
-
 # Build .NET projects
 set(DOTNET_PROJECTS
     src/ManagedLibrary/ManagedLibrary.csproj
