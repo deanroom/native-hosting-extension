@@ -216,6 +216,7 @@ namespace
             hostfxr_handle ctx = nullptr;
             rc = init_fn(to_native_path(config_path).c_str(), nullptr, &ctx);
 
+            log_info("hostfxr_initialize_for_runtime_config rc: " + std::to_string(rc));
             // rc返回值为1时，也是 hostfxr已经初始化，只是使用了相同配置，
             // 但是当前实现只有一个 runtime 单例，所以这里不会出现此种情形。
             if (rc != 0)
@@ -279,7 +280,7 @@ namespace
             log_info("Destroying assembly: " + path_);
         }
 
-        NativeHostStatus get_function(const char *type_name, const char *method_name, void **fn_ptr)
+        NativeHostStatus get_delegate(const char *type_name, const char *method_name, void **delegate)
         {
             if (!Runtime::instance().is_initialized())
             {
@@ -288,7 +289,7 @@ namespace
             }
 
             auto load_fn = Runtime::instance().get_load_fn();
-            *fn_ptr = nullptr;
+            *delegate = nullptr;
 
             // Check if assembly file exists
             if (!std::filesystem::exists(path_))
@@ -299,6 +300,16 @@ namespace
 
             log_info("Loading type: " + std::string(type_name));
             log_info("Loading method: " + std::string(method_name));
+            
+            // The runtime helper can be called multiple times for different assemblies/methods.
+            // The implementation caches loaded assemblies internally - loading the same assembly 
+            // multiple times will only load it once and reuse it.
+            // However, components should avoid relying on this caching behavior and should not
+            // maintain global state, as this can lead to ordering issues and side effects.
+
+            // The returned function pointer has process lifetime and can be called multiple times.
+            // Currently there is no way to unload components or free the function pointer.
+            // This capability may be added in future releases.
 
             int rc = load_fn(
                 to_native_path(path_.c_str()).c_str(),
@@ -306,16 +317,16 @@ namespace
                 to_native_path(method_name).c_str(),
                 UNMANAGEDCALLERSONLY_METHOD,
                 nullptr,
-                fn_ptr);
+                delegate);
 
-            if (rc != 0 || !*fn_ptr)
+            if (rc != 0 || !*delegate)
             {
-                log_error("Failed to load assembly and get function pointer", rc);
+                log_error("Failed to load assembly and get delegate", rc);
                 return DotNetErrors::map_error(rc);
             }
 
             loaded_ = true;
-            log_info("Successfully loaded function");
+            log_info("Successfully loaded delegate");
             return NativeHostStatus::SUCCESS;
         }
 
@@ -396,26 +407,26 @@ namespace
             return NativeHostStatus::SUCCESS;
         }
 
-        NativeHostStatus get_function_pointer(
+        NativeHostStatus get_delegate(
             native_assembly_handle_t handle,
             const char *type_name,
             const char *method_name,
-            void **fn_ptr)
+            void **delegate)
         {
-            if (!handle || !type_name || !method_name || !fn_ptr)
+            if (!handle || !type_name || !method_name)
             {
-                log_error("Invalid arguments for get_function_pointer");
+                log_error("Invalid arguments for get_delegate");
                 return NativeHostStatus::ERROR_INVALID_ARG;
             }
 
             auto it = assemblies_.find(handle);
             if (it == assemblies_.end())
             {
-                log_error("Assembly not found for get_function_pointer");
+                log_error("Assembly not found for get_delegate");
                 return NativeHostStatus::ERROR_ASSEMBLY_NOT_FOUND;
             }
 
-            return it->second->get_function(type_name, method_name, fn_ptr);
+            return it->second->get_delegate(type_name, method_name, delegate);
         }
 
         size_t assembly_count() const { return assemblies_.size(); }
@@ -430,7 +441,7 @@ namespace
 // Enhanced API implementations
 extern "C"
 {
-    NATIVE_HOST_API NativeHostStatus create(native_host_handle_t *out_handle)
+    NATIVE_HOST_API NativeHostStatus native_host_create(native_host_handle_t *out_handle)
     {
         if (!out_handle)
         {
@@ -451,7 +462,7 @@ extern "C"
         return NativeHostStatus::SUCCESS;
     }
 
-    NATIVE_HOST_API NativeHostStatus destroy(native_host_handle_t handle)
+    NATIVE_HOST_API NativeHostStatus native_host_destroy(native_host_handle_t handle)
     {
         if (!handle)
         {
@@ -471,7 +482,7 @@ extern "C"
         return NativeHostStatus::SUCCESS;
     }
 
-    NATIVE_HOST_API NativeHostStatus initialize(native_host_handle_t handle)
+    NATIVE_HOST_API NativeHostStatus native_host_initialize(native_host_handle_t handle)
     {
         if (!handle)
         {
@@ -489,10 +500,10 @@ extern "C"
         return g_host->initialize_runtime();
     }
 
-    NATIVE_HOST_API NativeHostStatus load(
+    NATIVE_HOST_API NativeHostStatus native_host_load_assembly(
         native_host_handle_t handle,
         const char *path,
-        native_assembly_handle_t *out_handle)
+        native_assembly_handle_t *assembly_handle)
     {
         if (!handle)
         {
@@ -507,10 +518,10 @@ extern "C"
             return NativeHostStatus::ERROR_HOST_NOT_FOUND;
         }
 
-        return g_host->load_assembly(path, out_handle);
+        return g_host->load_assembly(path, assembly_handle);
     }
 
-    NATIVE_HOST_API NativeHostStatus unload(
+    NATIVE_HOST_API NativeHostStatus native_host_unload_assembly(
         native_host_handle_t handle,
         native_assembly_handle_t assembly)
     {
@@ -530,26 +541,26 @@ extern "C"
         return g_host->unload_assembly(assembly);
     }
 
-    NATIVE_HOST_API NativeHostStatus get_function_pointer(
+    NATIVE_HOST_API NativeHostStatus native_host_get_delegate(
         native_host_handle_t handle,
         native_assembly_handle_t assembly,
         const char *type_name,
         const char *method_name,
-        void **fn_ptr)
+        void **delegate)
     {
-        if (!handle)
+        if (!handle || !assembly || !type_name || !method_name)
         {
-            log_error("Invalid handle for get_function_pointer");
+            log_error("Invalid handle for get_delegate");
             return NativeHostStatus::ERROR_INVALID_ARG;
         }
 
         std::lock_guard<std::mutex> lock(g_mutex);
         if (!g_host || handle != g_host.get())
         {
-            log_error("Host not found for get_function_pointer");
+            log_error("Host not found for get_delegate");
             return NativeHostStatus::ERROR_HOST_NOT_FOUND;
         }
 
-        return g_host->get_function_pointer(assembly, type_name, method_name, fn_ptr);
+        return g_host->get_delegate(assembly, type_name, method_name, delegate);
     }
 }

@@ -20,7 +20,7 @@ add_custom_target(build_test_library
 set(TEST_SOURCES
     native_host_basic_test.cpp
     native_host_assembly_test.cpp
-    native_host_function_test.cpp
+    native_host_delegate_test.cpp
     native_host_concurrency_test.cpp
 )
 
@@ -49,7 +49,7 @@ add_dependencies(native_host_tests build_test_library)
 set(TEST_CATEGORIES
     basic
     assembly
-    function
+    delegate
     concurrency
 )
 

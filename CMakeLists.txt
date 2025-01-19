@@ -4,7 +4,7 @@ project(native-hosting-extension)
 # Basic settings
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(DOTNET_SDK_VERSION "9.0.0" CACHE STRING ".NET SDK version")
+set(DOTNET_SDK_VERSION "8.0.0" CACHE STRING ".NET SDK version")
 
 # Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin)

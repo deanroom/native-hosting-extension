@@ -14,14 +14,14 @@ protected:
         assembly_path_ = "../tests/TestLibrary.dll";
         type_name_ = "TestLibrary.TestClass,TestLibrary";
 
-        status_ = create(&host_handle_);
+        status_ = native_host_create(&host_handle_);
         EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
         EXPECT_NE(host_handle_, nullptr);
 
-        status_ = initialize(host_handle_);
+        status_ = native_host_initialize(host_handle_);
         EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
 
-        status_ = load(host_handle_, assembly_path_.c_str(), &assembly_handle_);
+        status_ = native_host_load_assembly(host_handle_, assembly_path_.c_str(), &assembly_handle_);
         EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
     }
 
@@ -29,12 +29,12 @@ protected:
     {
         if (assembly_handle_ != nullptr)
         {
-            status_ = unload(host_handle_, assembly_handle_);
+            status_ = native_host_unload_assembly(host_handle_, assembly_handle_);
             EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
         }
         if (host_handle_ != nullptr)
         {
-            status_ = destroy(host_handle_);
+            status_ = native_host_destroy(host_handle_);
             EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
         }
     }
@@ -43,7 +43,7 @@ protected:
     T getFunctionPointer(const char *method_name)
     {
         void *fn_ptr = nullptr;
-        auto status = get_function_pointer(
+        auto status = native_host_get_delegate(
             host_handle_,
             assembly_handle_,
             type_name_.c_str(),
@@ -64,7 +64,7 @@ protected:
 TEST_F(NativeHostFunctionTest, GetFunctionPointerSucceeds)
 {
     void* fn_ptr = nullptr;
-    auto status = get_function_pointer(
+    auto status = native_host_get_delegate(
         host_handle_,
         assembly_handle_,
         type_name_.c_str(),
@@ -77,7 +77,7 @@ TEST_F(NativeHostFunctionTest, GetFunctionPointerSucceeds)
 TEST_F(NativeHostFunctionTest, GetFunctionPointerFailsWithNullTypeName)
 {
     void* fn_ptr = nullptr;
-    auto status = get_function_pointer(
+    auto status = native_host_get_delegate(
         host_handle_,
         assembly_handle_,
         nullptr,
@@ -89,7 +89,7 @@ TEST_F(NativeHostFunctionTest, GetFunctionPointerFailsWithNullTypeName)
 TEST_F(NativeHostFunctionTest, GetFunctionPointerFailsWithNullMethodName)
 {
     void* fn_ptr = nullptr;
-    auto status = get_function_pointer(
+    auto status = native_host_get_delegate(
         host_handle_,
         assembly_handle_,
         type_name_.c_str(),
@@ -101,7 +101,7 @@ TEST_F(NativeHostFunctionTest, GetFunctionPointerFailsWithNullMethodName)
 TEST_F(NativeHostFunctionTest, GetFunctionPointerFailsWithEmptyTypeName)
 {
     void* fn_ptr = nullptr;
-    auto status = get_function_pointer(
+    auto status = native_host_get_delegate(
         host_handle_,
         assembly_handle_,
         "",
@@ -113,7 +113,7 @@ TEST_F(NativeHostFunctionTest, GetFunctionPointerFailsWithEmptyTypeName)
 TEST_F(NativeHostFunctionTest, GetFunctionPointerFailsWithEmptyMethodName)
 {
     void* fn_ptr = nullptr;
-    auto status = get_function_pointer(
+    auto status = native_host_get_delegate(
         host_handle_,
         assembly_handle_,
         type_name_.c_str(),

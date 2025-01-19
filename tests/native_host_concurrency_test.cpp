@@ -24,10 +24,10 @@ protected:
 TEST_F(NativeHostConcurrencyTest, SingleHostMultipleThreads)
 {
     native_host_handle_t host = nullptr;
-    auto status = create(&host);
+    auto status = native_host_create(&host);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
-    status = initialize(host);
+    status = native_host_initialize(host);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
     constexpr int NUM_THREADS = 4;
@@ -36,24 +36,24 @@ TEST_F(NativeHostConcurrencyTest, SingleHostMultipleThreads)
 
     for (int i = 0; i < NUM_THREADS; ++i)
     {
-        threads.emplace_back([&]() {
+        threads.emplace_back([&]()
+                             {
             native_assembly_handle_t assembly = nullptr;
-            auto status = load(host, assembly_path_.c_str(), &assembly);
+            auto status = native_host_load_assembly(host, assembly_path_.c_str(), &assembly);
             if (status == NativeHostStatus::SUCCESS)
             {
                 success_count++;
-                unload(host, assembly);
-            }
-        });
+                native_host_unload_assembly(host, assembly);
+            } });
     }
 
-    for (auto& thread : threads)
+    for (auto &thread : threads)
     {
         thread.join();
     }
 
     EXPECT_EQ(success_count.load(), NUM_THREADS);
-    destroy(host);
+    native_host_destroy(host);
 }
 
 TEST_F(NativeHostConcurrencyTest, MultipleHostCreationAttempts)
@@ -64,19 +64,19 @@ TEST_F(NativeHostConcurrencyTest, MultipleHostCreationAttempts)
 
     for (int i = 0; i < NUM_THREADS; ++i)
     {
-        threads.emplace_back([&]() {
+        threads.emplace_back([&]()
+                             {
             native_host_handle_t thread_handle = nullptr;
-            auto status = create(&thread_handle);
+            auto status = native_host_create(&thread_handle);
             if (status == NativeHostStatus::SUCCESS)
             {
                 success_count++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                destroy(thread_handle);
-            }
-        });
+                native_host_destroy(thread_handle);
+            } });
     }
 
-    for (auto& thread : threads)
+    for (auto &thread : threads)
     {
         thread.join();
     }
@@ -87,18 +87,18 @@ TEST_F(NativeHostConcurrencyTest, MultipleHostCreationAttempts)
 TEST_F(NativeHostConcurrencyTest, ConcurrentFunctionCalls)
 {
     native_host_handle_t host = nullptr;
-    auto status = create(&host);
+    auto status = native_host_create(&host);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
-    status = initialize(host);
+    status = native_host_initialize(host);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
     native_assembly_handle_t assembly = nullptr;
-    status = load(host, assembly_path_.c_str(), &assembly);
+    status = native_host_load_assembly(host, assembly_path_.c_str(), &assembly);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
-    void* fn_ptr = nullptr;
-    status = get_function_pointer(
+    void *fn_ptr = nullptr;
+    status = native_host_get_delegate(
         host,
         assembly,
         type_name_.c_str(),
@@ -106,7 +106,7 @@ TEST_F(NativeHostConcurrencyTest, ConcurrentFunctionCalls)
         &fn_ptr);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
-    auto add_fn = reinterpret_cast<int32_t(*)(int32_t, int32_t)>(fn_ptr);
+    auto add_fn = reinterpret_cast<int32_t (*)(int32_t, int32_t)>(fn_ptr);
 
     constexpr int NUM_THREADS = 4;
     std::vector<std::thread> threads;
@@ -114,35 +114,35 @@ TEST_F(NativeHostConcurrencyTest, ConcurrentFunctionCalls)
 
     for (int i = 0; i < NUM_THREADS; ++i)
     {
-        threads.emplace_back([&, i]() {
+        threads.emplace_back([&, i]()
+                             {
             for (int j = 0; j < 1000; ++j)
             {
                 if (add_fn(i, j) != i + j)
                 {
                     error_count++;
                 }
-            }
-        });
+            } });
     }
 
-    for (auto& thread : threads)
+    for (auto &thread : threads)
     {
         thread.join();
     }
 
     EXPECT_EQ(error_count.load(), 0);
 
-    unload(host, assembly);
-    destroy(host);
+    native_host_unload_assembly(host, assembly);
+    native_host_destroy(host);
 }
 
 TEST_F(NativeHostConcurrencyTest, ConcurrentAssemblyOperations)
 {
     native_host_handle_t host = nullptr;
-    auto status = create(&host);
+    auto status = native_host_create(&host);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
-    status = initialize(host);
+    status = native_host_initialize(host);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
     constexpr int NUM_THREADS = 4;
@@ -152,11 +152,12 @@ TEST_F(NativeHostConcurrencyTest, ConcurrentAssemblyOperations)
 
     for (int i = 0; i < NUM_THREADS; ++i)
     {
-        threads.emplace_back([&]() {
+        threads.emplace_back([&]()
+                             {
             for (int j = 0; j < OPERATIONS_PER_THREAD; ++j)
             {
                 native_assembly_handle_t assembly = nullptr;
-                auto status = load(host, assembly_path_.c_str(), &assembly);
+                auto status = native_host_load_assembly(host, assembly_path_.c_str(), &assembly);
                 if (status != NativeHostStatus::SUCCESS)
                 {
                     error_count++;
@@ -164,7 +165,7 @@ TEST_F(NativeHostConcurrencyTest, ConcurrentAssemblyOperations)
                 }
 
                 void* fn_ptr = nullptr;
-                status = get_function_pointer(
+                status =  native_host_get_delegate(
                     host,
                     assembly,
                     type_name_.c_str(),
@@ -183,20 +184,19 @@ TEST_F(NativeHostConcurrencyTest, ConcurrentAssemblyOperations)
                     }
                 }
 
-                status = unload(host, assembly);
+                status = native_host_unload_assembly(host, assembly);
                 if (status != NativeHostStatus::SUCCESS)
                 {
                     error_count++;
                 }
-            }
-        });
+            } });
     }
 
-    for (auto& thread : threads)
+    for (auto &thread : threads)
     {
         thread.join();
     }
 
     EXPECT_EQ(error_count.load(), 0);
-    destroy(host);
-} 
+    native_host_destroy(host);
+}

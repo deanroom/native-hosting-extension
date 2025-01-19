@@ -53,4 +53,22 @@ internal static partial class NativeMethods
         string typeName,
         string methodName,
         out IntPtr functionPointer);
+
+    [LibraryImport(LibraryName, EntryPoint = "get_delegate", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial NativeHostStatus GetDelegate(
+        IntPtr handle,
+        IntPtr assemblyHandle,
+        string typeName,
+        string methodName,
+        out IntPtr delegatePointer);
+
+    [LibraryImport(LibraryName, EntryPoint = "invoke_method", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial NativeHostStatus InvokeMethod(
+        IntPtr handle,
+        IntPtr assemblyHandle,
+        string typeName,
+        string methodName,
+        IntPtr[] args,
+        int argCount,
+        out IntPtr result);
 }

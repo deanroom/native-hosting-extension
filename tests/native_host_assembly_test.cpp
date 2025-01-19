@@ -10,11 +10,11 @@ protected:
         assembly_path_ = "../tests/TestLibrary.dll";
         type_name_ = "TestLibrary.TestClass,TestLibrary";
 
-        status_ = create(&host_handle_);
+        status_ = native_host_create(&host_handle_);
         EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
         EXPECT_NE(host_handle_, nullptr);
 
-        status_ = initialize(host_handle_);
+        status_ = native_host_initialize(host_handle_);
         EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
     }
 
@@ -22,12 +22,12 @@ protected:
     {
         if (assembly_handle_ != nullptr)
         {
-            status_ = unload(host_handle_, assembly_handle_);
+            status_ = native_host_unload_assembly(host_handle_, assembly_handle_);
             EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
         }
         if (host_handle_ != nullptr)
         {
-            status_ = destroy(host_handle_);
+            status_ = native_host_destroy(host_handle_);
             EXPECT_EQ(status_, NativeHostStatus::SUCCESS);
         }
     }
@@ -42,54 +42,54 @@ protected:
 TEST_F(NativeHostAssemblyTest, LoadSucceeds)
 {
     native_assembly_handle_t assembly = nullptr;
-    auto status = load(host_handle_, assembly_path_.c_str(), &assembly);
+    auto status = native_host_load_assembly(host_handle_, assembly_path_.c_str(), &assembly);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
     EXPECT_NE(assembly, nullptr);
 
-    status = unload(host_handle_, assembly);
+    status = native_host_unload_assembly(host_handle_, assembly);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 }
 
 TEST_F(NativeHostAssemblyTest, LoadFailsWithNullPath)
 {
     native_assembly_handle_t assembly = nullptr;
-    auto status = load(host_handle_, nullptr, &assembly);
+    auto status = native_host_load_assembly(host_handle_, nullptr, &assembly);
     EXPECT_EQ(status, NativeHostStatus::ERROR_INVALID_ARG);
 }
 
 TEST_F(NativeHostAssemblyTest, LoadFailsWithNullHandle)
 {
-    auto status = load(host_handle_, assembly_path_.c_str(), nullptr);
+    auto status = native_host_load_assembly(host_handle_, assembly_path_.c_str(), nullptr);
     EXPECT_EQ(status, NativeHostStatus::ERROR_INVALID_ARG);
 }
 
 TEST_F(NativeHostAssemblyTest, LoadFailsWithNonexistentAssembly)
 {
     native_assembly_handle_t assembly = nullptr;
-    auto status = load(host_handle_, "nonexistent.dll", &assembly);
+    auto status = native_host_load_assembly(host_handle_, "nonexistent.dll", &assembly);
     EXPECT_EQ(status, NativeHostStatus::ERROR_ASSEMBLY_LOAD);
 }
 
 TEST_F(NativeHostAssemblyTest, UnloadSucceeds)
 {
     native_assembly_handle_t assembly = nullptr;
-    auto status = load(host_handle_, assembly_path_.c_str(), &assembly);
+    auto status = native_host_load_assembly(host_handle_, assembly_path_.c_str(), &assembly);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 
-    status = unload(host_handle_, assembly);
+    status = native_host_unload_assembly(host_handle_, assembly);
     EXPECT_EQ(status, NativeHostStatus::SUCCESS);
 }
 
 TEST_F(NativeHostAssemblyTest, UnloadFailsWithNullHandle)
 {
-    auto status = unload(host_handle_, nullptr);
+    auto status = native_host_unload_assembly(host_handle_, nullptr);
     EXPECT_EQ(status, NativeHostStatus::ERROR_INVALID_ARG);
 }
 
 TEST_F(NativeHostAssemblyTest, UnloadFailsWithInvalidHandle)
 {
     native_assembly_handle_t invalid_assembly = reinterpret_cast<native_assembly_handle_t>(0xDEADBEEF);
-    auto status = unload(host_handle_, invalid_assembly);
+    auto status = native_host_unload_assembly(host_handle_, invalid_assembly);
     EXPECT_EQ(status, NativeHostStatus::ERROR_ASSEMBLY_NOT_FOUND);
 }
 
@@ -102,7 +102,7 @@ TEST_F(NativeHostAssemblyTest, MultipleAssemblyLoading)
     for (int i = 0; i < NUM_ASSEMBLIES; ++i)
     {
         native_assembly_handle_t assembly = nullptr;
-        auto status = load(host_handle_, assembly_path_.c_str(), &assembly);
+        auto status = native_host_load_assembly(host_handle_, assembly_path_.c_str(), &assembly);
         EXPECT_EQ(status, NativeHostStatus::SUCCESS);
         assemblies.push_back(assembly);
     }
@@ -110,7 +110,7 @@ TEST_F(NativeHostAssemblyTest, MultipleAssemblyLoading)
     // Unload all assemblies
     for (auto assembly : assemblies)
     {
-        auto status = unload(host_handle_, assembly);
+        auto status = native_host_unload_assembly(host_handle_, assembly);
         EXPECT_EQ(status, NativeHostStatus::SUCCESS);
     }
 } 
