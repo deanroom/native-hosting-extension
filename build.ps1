@@ -43,7 +43,7 @@ Write-Host "=== Building $BUILD_TYPE configuration ==="
 
 # Configure CMake
 Write-Host "Configuring CMake for $BUILD_TYPE..."
-cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+cmake -B $BUILD_DIR "-DCMAKE_BUILD_TYPE=$BUILD_TYPE"
 
 # Build the project
 Write-Host "Building project ($BUILD_TYPE)..."
