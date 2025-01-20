@@ -1,132 +1,75 @@
 # Exit on error
 $ErrorActionPreference = "Stop"
 
-# Remove existing build directory
-if (Test-Path build) {
-    Remove-Item -Recurse -Force build
-}
+# Default values
+$BUILD_DIR = "build"
+$CLEAN = $true
+$RUN_TESTS = $true
+$RUN_DEMO = $true
+$BUILD_TYPE = "Debug"
 
-# Detect OS and set runtime identifier
-$OS = if ($IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6)) {
-    "windows"
-} elseif ($IsMacOS) {
-    "macos"
-} elseif ($IsLinux) {
-    "linux"
-} else {
-    throw "Unsupported platform"
-}
+# Get number of CPU cores
+$NUM_CORES = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+if (-not $NUM_CORES) { $NUM_CORES = 4 }  # Default to 4 if detection fails
 
-$RUNTIME_ID = switch ($OS) {
-    "macos" { "osx-arm64" }
-    "linux" { "linux-x64" }
-    "windows" { 
-        # Check if running on ARM64 Windows
-        if ([System.Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE") -eq "ARM64") {
-            "win-arm64"
-        } else {
-            "win-x64"
+# Parse command line arguments
+foreach ($arg in $args) {
+    switch ($arg) {
+        "--debug" { $BUILD_TYPE = "Debug" }
+        "--release" { $BUILD_TYPE = "Release" }
+        "--clean" { $CLEAN = $true }
+        "--test" { $RUN_TESTS = $true }
+        "--demo" { $RUN_DEMO = $true }
+        default {
+            Write-Host "Unknown option: $arg"
+            Write-Host "Usage: $PSCommandPath [--debug|--release] [--clean] [--test] [--demo]"
+            exit 1
         }
     }
 }
 
-$DOTNET_ROOT = switch ($OS) {
-    "macos" {
-        if (Test-Path "/opt/homebrew/share/dotnet") {
-            "/opt/homebrew/share/dotnet"
-        } else {
-            "/usr/local/share/dotnet"
-        }
-    }
-    "linux" { "/usr/share/dotnet" }
-    "windows" { 
-        if (Test-Path "${env:ProgramFiles}\dotnet") {
-            "${env:ProgramFiles}\dotnet"
-        } elseif (Test-Path "${env:ProgramFiles(x86)}\dotnet") {
-            "${env:ProgramFiles(x86)}\dotnet"
-        } else {
-            throw ".NET SDK not found in Program Files"
-        }
+# Clean build directory if requested
+if ($CLEAN) {
+    Write-Host "Cleaning build directory..."
+    if (Test-Path $BUILD_DIR) {
+        Remove-Item -Recurse -Force $BUILD_DIR
     }
 }
-
-# Convert paths to platform-specific format
-$BUILD_DIR = Join-Path $PWD "build"
-$OUTPUT_DIR = "bin"
-
-Write-Host "Detected OS: $OS"
-Write-Host "Runtime Identifier: $RUNTIME_ID"
-Write-Host "DOTNET_ROOT: $DOTNET_ROOT"
-
-# Store root directory
-$ROOT_DIR = $PWD
 
 # Create build directory
 New-Item -ItemType Directory -Force -Path $BUILD_DIR | Out-Null
-Set-Location $BUILD_DIR
 
-# Create output directory
-$FULL_OUTPUT_DIR = Join-Path $BUILD_DIR $OUTPUT_DIR
-New-Item -ItemType Directory -Force -Path $FULL_OUTPUT_DIR | Out-Null
+Write-Host "=== Building $BUILD_TYPE configuration ==="
 
-# Build native library and tests
-Write-Host "Building native library and tests..."
-cmake .. "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$FULL_OUTPUT_DIR" "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$FULL_OUTPUT_DIR"
-cmake --build . --config Release
+# Configure CMake
+Write-Host "Configuring CMake for $BUILD_TYPE..."
+cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
-# Go back to root directory
-Set-Location $ROOT_DIR
+# Build the project
+Write-Host "Building project ($BUILD_TYPE)..."
+cmake --build $BUILD_DIR --config $BUILD_TYPE --parallel $NUM_CORES
 
-# Build test library
-Write-Host "Building test library..."
-Set-Location (Join-Path "tests" "TestLibrary")
-if (-not (Test-Path "TestLibrary.csproj")) {
-    throw "Error: TestLibrary.csproj not found in $(Get-Location)"
+# Validate output directories
+Write-Host "Validating $BUILD_TYPE output directories..."
+if (-not (Test-Path "$BUILD_DIR/$BUILD_TYPE/bin")) {
+    Write-Host "Error: $BUILD_TYPE/bin directory not found!"
+    exit 1
 }
-$TEST_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") "tests"
-dotnet publish -c Release -r $RUNTIME_ID -o $TEST_OUTPUT
-Set-Location $ROOT_DIR
 
-# Run tests
-Set-Location $BUILD_DIR/bin
-Write-Host "Running tests..."
-./native_host_tests.exe
-Set-Location $ROOT_DIR
-
-# Build .NET libraries
-Write-Host "Building .NET libraries..."
-
-# Build NativeHost
-Set-Location (Join-Path "src" "NativeHost")
-if (-not (Test-Path "NativeHost.csproj")) {
-    throw "Error: NativeHost.csproj not found in $(Get-Location)"
+# Run tests if requested
+if ($RUN_TESTS) {
+    Write-Host "Running $BUILD_TYPE tests..."
+    Push-Location $BUILD_DIR
+    ctest --output-on-failure --build-config $BUILD_TYPE
+    Pop-Location
 }
-$LIB_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
-dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
-Set-Location $ROOT_DIR
 
-# Build ManagedLibrary
-Set-Location (Join-Path "src" "ManagedLibrary")
-if (-not (Test-Path "ManagedLibrary.csproj")) {
-    throw "Error: ManagedLibrary.csproj not found in $(Get-Location)"
+# Run DemoApp if requested and tests passed
+if ($RUN_DEMO) {
+    Write-Host "Running DemoApp..."
+    Push-Location "$BUILD_DIR/$BUILD_TYPE/bin"
+    ./DemoApp
+    Pop-Location
 }
-dotnet publish -c Release -r $RUNTIME_ID -o $LIB_OUTPUT
-Set-Location $ROOT_DIR
 
-# Build demo app
-Write-Host "Building demo app..."
-Set-Location (Join-Path "src" "DemoApp")
-if (-not (Test-Path "DemoApp.csproj")) {
-    throw "Error: DemoApp.csproj not found in $(Get-Location)"
-}
-$DEMO_OUTPUT = Join-Path (Join-Path $ROOT_DIR "build") $OUTPUT_DIR
-dotnet publish -c Release -r $RUNTIME_ID -o $DEMO_OUTPUT
-Set-Location $ROOT_DIR
-
-# Run demo app
-Write-Host "Running demo app..."
-Set-Location $DEMO_OUTPUT
-./DemoApp.exe
-Set-Location $ROOT_DIR
-
-Write-Host "Build completed successfully!"
+Write-Host "=== $BUILD_TYPE build completed successfully! ==="
