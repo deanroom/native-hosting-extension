@@ -8,13 +8,13 @@ namespace ManagedLibrary2;
 public static class LoggerFactory
 {
     private static ILoggerFactory? _factory;
-    private static readonly object _lock = new();
+    private static readonly object Lock = new();
 
     public static ILogger<T> CreateLogger<T>()
     {
         if (_factory == null)
         {
-            lock (_lock)
+            lock (Lock)
             {
                 if (_factory == null)
                 {

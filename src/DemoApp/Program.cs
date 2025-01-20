@@ -1,15 +1,12 @@
-using System.Runtime.InteropServices;
-using NativeHost;
-
 namespace DemoApp;
 
-class Program
+internal class Program
 {
     // Define delegates matching Calculator.cs methods
     private delegate int CalculateDelegate(int a, int b);
     private delegate void HelloDelegate();
 
-    static void Main(string[] args)
+    static void Main()
     {
         // Create native host instance
         using var host = new NativeHost.NativeHost();
@@ -27,13 +24,13 @@ class Program
             Console.WriteLine($"Library loaded successfully. Handle: 0x{library.Handle:X}");
 
             // Get managed type information
-            const string TypeName = "ManagedLibrary.Calculator";
-            Console.WriteLine($"\nAccessing type: {TypeName}");
+            const string typeName = "ManagedLibrary.Calculator";
+            Console.WriteLine($"\nAccessing type: {typeName}");
 
             // Get function pointers
-            var hello = library.GetFunction<HelloDelegate>($"{TypeName}, ManagedLibrary", "Hello");
-            var add = library.GetFunction<CalculateDelegate>($"{TypeName}, ManagedLibrary", "Add");
-            var subtract = library.GetFunction<CalculateDelegate>($"{TypeName}, ManagedLibrary", "Subtract");
+            var hello = library.GetFunction<HelloDelegate>($"{typeName}, ManagedLibrary", "Hello");
+            var add = library.GetFunction<CalculateDelegate>($"{typeName}, ManagedLibrary", "Add");
+            var subtract = library.GetFunction<CalculateDelegate>($"{typeName}, ManagedLibrary", "Subtract");
 
             // Test functions
             Console.WriteLine("\nTesting managed functions:");
