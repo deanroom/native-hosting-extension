@@ -70,6 +70,12 @@ if(NOT DOTNET_VERSION_OUTPUT MATCHES "^${DOTNET_SDK_VERSION}")
     string(REGEX REPLACE "([0-9]+\\.[0-9]+).*" "\\1.0" DOTNET_SDK_VERSION ${DOTNET_VERSION_OUTPUT})
     message(STATUS "Adjusting SDK version to ${DOTNET_SDK_VERSION}")
 endif()
+# List files in DOTNET_HOSTING_BASE
+file(GLOB DOTNET_HOSTING_FILES "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${PLATFORM_SUFFIX}-${ARCH}/*")
+message(STATUS "Files in ${DOTNET_HOSTING_BASE}:")
+foreach(FILE ${DOTNET_HOSTING_FILES})
+    message(STATUS "  ${FILE}")
+endforeach()
 
 # Set .NET hosting paths
 set(DOTNET_HOSTING_BASE "${DOTNET_ROOT}/packs/Microsoft.NETCore.App.Host.${PLATFORM_SUFFIX}-${ARCH}/${DOTNET_SDK_VERSION}/runtimes/${PLATFORM_SUFFIX}-${ARCH}/native")
