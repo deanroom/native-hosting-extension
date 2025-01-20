@@ -48,4 +48,4 @@ jobs:
     - name: Run Tests
       run: |
         cd ${{github.workspace}}/build
-        ctest -C Release --output-on-failure
+        ctest -C Debug --output-on-failure
