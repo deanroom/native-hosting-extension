@@ -37,3 +37,15 @@ jobs:
       run: |
         cd ${{github.workspace}}
         .\build.ps1 --debug --clean
+    
+    # Copy necessary DLLs
+    - name: Copy DLLs
+      run: |
+        cp "C:/Program Files/dotnet/host/fxr/8.0.12/hostfxr.dll" ${{github.workspace}}/build/tests/Debug/
+        cp "C:/Program Files/dotnet/shared/Microsoft.NETCore.App/8.0.12/*" ${{github.workspace}}/build/tests/Debug/
+
+    # Run Tests
+    - name: Run Tests
+      run: |
+        cd ${{github.workspace}}/build
+        ctest -C Release --output-on-failure
