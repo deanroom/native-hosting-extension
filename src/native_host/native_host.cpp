@@ -203,7 +203,12 @@ namespace
             handle_ = load_library(path);
             if (handle_)
             {
-                log_info("Loaded library: " + std::string(path));
+#ifdef _WIN32
+                std::string path_str(reinterpret_cast<const char*>(path));
+#else
+                std::string path_str(path);
+#endif
+                log_info("Loaded library: " + path_str);
             }
         }
 
