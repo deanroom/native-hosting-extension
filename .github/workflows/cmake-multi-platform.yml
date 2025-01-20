@@ -34,4 +34,6 @@ jobs:
         
     # Configure CMake
     - name: Configure CMake
-      run: cd ${{github.workspace}} && ./build.ps1
+      run: |
+        cd ${{github.workspace}}
+        .\build.ps1 --release --clean
