@@ -204,7 +204,13 @@ namespace
             if (handle_)
             {
 #ifdef _WIN32
-                std::string path_str(reinterpret_cast<const char*>(path));
+                int size = WideCharToMultiByte(CP_UTF8, 0, path, -1, nullptr, 0, nullptr, nullptr);
+                std::string path_str;
+                if (size > 0)
+                {
+                    path_str.resize(size - 1); // -1 because size includes null terminator
+                    WideCharToMultiByte(CP_UTF8, 0, path, -1, &path_str[0], size, nullptr, nullptr);
+                }
 #else
                 std::string path_str(path);
 #endif
