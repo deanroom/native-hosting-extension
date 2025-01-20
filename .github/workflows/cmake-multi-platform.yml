@@ -34,4 +34,4 @@ jobs:
         
     # Configure CMake
     - name: Configure CMake
-      run: cd ${{github.workspace}} && ./build.sh
+      run: cd ${{github.workspace}} && ./build.ps1
