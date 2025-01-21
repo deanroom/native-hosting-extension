@@ -60,6 +60,7 @@ if (-not (Test-Path "$BUILD_DIR/$BUILD_TYPE/bin")) {
 if ($RUN_TESTS) {
     Write-Host "Running $BUILD_TYPE tests..."
     Push-Location $BUILD_DIR
+    dir $BUILD_DIR/tests
     ctest --output-on-failure --build-config $BUILD_TYPE
     Pop-Location
 }
