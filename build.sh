@@ -1,4 +1,6 @@
 #!/bin/bash
+
+rm -rf build
 set -e
 
 # Default values

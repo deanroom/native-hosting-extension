@@ -24,8 +24,11 @@ public class Calculator
             string assemblyLocation = Assembly.GetExecutingAssembly().Location;
             string assemblyDirectory = Path.GetDirectoryName(assemblyLocation);
 
+            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+
+
             string assemblyPath = Path.Combine(assemblyDirectory, "ManagedLibrary3.dll");
-            _dynamicAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
+            _dynamicAssembly = Assembly.LoadFrom(assemblyPath);
             _dynamicCalculatorType = _dynamicAssembly.GetType("ManagedLibrary3.DynamicCalculator");
             Logger.LogInformation("Successfully loaded ManagedLibrary3");
         }
@@ -34,6 +37,25 @@ public class Calculator
             Logger.LogError(ex, "Failed to load ManagedLibrary3");
         }
         Logger.LogInformation("Hello, World!");
+    }
+
+    private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+    {
+        string dependencyPath = GetDependencyPath(args.Name);
+        if (File.Exists(dependencyPath))
+        {
+            return Assembly.LoadFrom(dependencyPath);
+        }
+        return null;
+    }
+
+    // 获取依赖的 DLL 的路径
+    private static string GetDependencyPath(string assemblyName)
+    {
+        string assemblyLocation = Assembly.GetExecutingAssembly().Location;
+        string assemblyDirectory = Path.GetDirectoryName(assemblyLocation);
+        string dependencyPath = Path.Combine(assemblyDirectory, assemblyName.Split(',')[0] + ".dll");
+        return dependencyPath;
     }
 
     [UnmanagedCallersOnly]
