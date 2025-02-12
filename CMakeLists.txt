@@ -90,6 +90,7 @@ endif()
 # Build .NET projects
 set(DOTNET_PROJECTS
     src/ManagedLibrary/ManagedLibrary.csproj
+    src/ManagedLibrary3/ManagedLibrary3.csproj
 )
 
 add_custom_target(build_managed ALL)
